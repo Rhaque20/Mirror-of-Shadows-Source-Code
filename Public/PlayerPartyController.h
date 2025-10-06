@@ -50,6 +50,9 @@ class MIRROROFSHADOWS_API APlayerPartyController : public APlayerController
 		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 		float MaxChainTime = 10.0f;
 
+		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+		float ChainTimerInterval = 0.02f;
+
 		UPROPERTY()
 		float RemainingChainTime = 0.0f;
 
