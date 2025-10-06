@@ -212,20 +212,22 @@ bool APlayerCharacters::SkillAttackBySkill(UPlayerSkill* SkillRef)
 
 		if (Classptr)
 		{
-			AbilitySystem->TryActivateAbilityByClass(Classptr);
+			SuccessfulAttack = AbilitySystem->TryActivateAbilityByClass(Classptr);
 		}
 		else
 		{
+			// THIS HAS TO GUARANTEE THAT IT WORKS
 			FGameplayEventData Payload;
 			Payload.OptionalObject = SkillRef;
 			UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, TAG_Ability_Input_Skill, Payload);
+			SuccessfulAttack = true;
 		}
 	}
 
 	return SuccessfulAttack;
 }
 
-bool APlayerCharacters::SummonAttack(AActor* Target, bool SummonerOnGround)
+bool APlayerCharacters::SummonAttack(AActor* Target, bool bUseGroundSkill)
 {
 	bool SuccessfulAttack = false;
 	ARPGCharacterBase* targetChar;
@@ -235,9 +237,18 @@ bool APlayerCharacters::SummonAttack(AActor* Target, bool SummonerOnGround)
 	if (bIsSummoned)
 		return false;
 
+	if (Target)
+	{
+		targetChar = Cast<ARPGCharacterBase>(Target);
+		if (targetChar)
+		{
+			bUseGroundSkill = targetChar->IsOnGround();
+		}
+	}
+
 	if (IsValid(PartyController))
 	{
-		int chainLevelReq = CharacterCore->GetChainLevelRequirement(SummonerOnGround);
+		int chainLevelReq = CharacterCore->GetChainLevelRequirement(bUseGroundSkill);
 		int currentChainLevel = PartyController->GetSkillChainLevel();
 		if (chainLevelReq == currentChainLevel)
 		{
@@ -253,8 +264,8 @@ bool APlayerCharacters::SummonAttack(AActor* Target, bool SummonerOnGround)
 				}
 				else
 				{
-					SwitchSkill = CharacterCore->GetSwitchSkill(SummonerOnGround);
-					useSkillOnGround = SummonerOnGround;
+					SwitchSkill = CharacterCore->GetSwitchSkill(bUseGroundSkill);
+					useSkillOnGround = bUseGroundSkill;
 				}
 				
 				SuccessfulAttack = SkillAttackBySkill(SwitchSkill);
@@ -264,11 +275,11 @@ bool APlayerCharacters::SummonAttack(AActor* Target, bool SummonerOnGround)
 					bIsSummoned = true;
 					// Use this for dealing with clipping through ground
 					GetCharacterMovement()->bRunPhysicsWithNoController = true;
-					if (!useSkillOnGround)
+					/*if (!useSkillOnGround)
 					{
 						GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Falling);
 						TriggerAirTime(2.0f);
-					}
+					}*/
 				}					
 			}
 		}

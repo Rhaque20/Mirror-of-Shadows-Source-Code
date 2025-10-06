@@ -107,7 +107,7 @@ public:
 	bool SkillAttackBySkill(class UPlayerSkill *SkillRef);
 
 	UFUNCTION(BlueprintCallable)
-	bool SummonAttack(AActor* Target, bool SummonOnGround);
+	bool SummonAttack(AActor* Target, bool bUseGroundSkill);
 
 	UFUNCTION(BlueprintCallable)
 	void ResetMovementCache();

@@ -54,7 +54,7 @@ class MIRROROFSHADOWS_API UPlayerCore : public UCombatComponent
 
 		int GetChainLevelRequirement(bool OnGround) const
 		{
-			return GroundChainLevelReq;
+			return OnGround ? GroundChainLevelReq : AirChainLevelReq;
 		}
 
 		TArray<UPlayerSkill*> GetSkillList(bool OnGround) const
