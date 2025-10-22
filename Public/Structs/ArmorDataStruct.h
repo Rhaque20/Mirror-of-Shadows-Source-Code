@@ -1,11 +1,10 @@
-#include "GameplayTagContainer.h"
-#include "../Enumerator/ItemEnum.h"
+#include "RPGItemStruct.h"
 
 #include "ArmorDataStruct.generated.h"
 #pragma once
 
 USTRUCT(BlueprintType)
-struct FArmorData
+struct FArmorData : public FRPGItemData
 {
 	GENERATED_BODY()
 

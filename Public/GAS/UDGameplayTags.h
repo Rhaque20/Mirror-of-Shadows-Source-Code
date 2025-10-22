@@ -17,6 +17,9 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Effect_State_Stagger_Stunned)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Effect_State_Stagger_KnockedDown)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Effect_State_Stagger_StaggerFall)
 
+//For Attack Delay
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Effect_State_AttackDelay)
+
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Effect_Defensive_Block)
 
 //For combat states
@@ -24,7 +27,12 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Effect_State_OffField)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Effect_State_Airborne)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Effect_State_OnGround)
 
+//For combat tickets
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_EnemyAI_Ticket_Melee)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_EnemyAI_Ticket_Range)
+
 // Ability inputs
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Ability_Input_NormalAttack)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Ability_Input_Skill)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Ability_Input_Jump)
 

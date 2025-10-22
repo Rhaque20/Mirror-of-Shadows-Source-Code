@@ -21,6 +21,8 @@ class MIRROROFSHADOWS_API AEnemyAIController : public AAIController
 
 		AEnemyAIController(const FObjectInitializer& ObjectInitializer = FObjectInitializer :: Get());
 
+		void SetPlayerPawn(APawn* PlayerRef);
+
 	protected:
 		UPROPERTY(EditDefaultsOnly,BlueprintReadWrite)
 		APawn* PlayerPawn;

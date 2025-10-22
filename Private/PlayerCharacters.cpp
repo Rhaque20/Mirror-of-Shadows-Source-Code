@@ -232,8 +232,6 @@ bool APlayerCharacters::SummonAttack(AActor* Target, bool bUseGroundSkill)
 	bool SuccessfulAttack = false;
 	ARPGCharacterBase* targetChar;
 
-	bool useSkillOnGround;
-
 	if (bIsSummoned)
 		return false;
 
@@ -248,45 +246,36 @@ bool APlayerCharacters::SummonAttack(AActor* Target, bool bUseGroundSkill)
 
 	if (IsValid(PartyController))
 	{
-		int chainLevelReq = CharacterCore->GetChainLevelRequirement(bUseGroundSkill);
+		if (IsValid(AbilitySystem))
+		{
+			UPlayerSkill* SwitchSkill;
+
+			SwitchSkill = CharacterCore->GetSwitchSkill(bUseGroundSkill);
+
+			SuccessfulAttack = SkillAttackBySkill(SwitchSkill);
+			if (SuccessfulAttack)
+			{
+				AutoTarget_Set(Target);
+				bIsSummoned = true;
+				// Use this for dealing with clipping through ground
+				GetCharacterMovement()->bRunPhysicsWithNoController = true;
+				/*if (!useSkillOnGround)
+				{
+					GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Falling);
+					TriggerAirTime(2.0f);
+				}*/
+			}
+		}
+		/*int chainLevelReq = CharacterCore->GetChainLevelRequirement(bUseGroundSkill);
 		int currentChainLevel = PartyController->GetSkillChainLevel();
 		if (chainLevelReq == currentChainLevel)
 		{
-			if (IsValid(AbilitySystem))
-			{
-				UPlayerSkill* SwitchSkill;
-				if (Target != nullptr)
-				{
-					targetChar = Cast<ARPGCharacterBase>(Target);
-					useSkillOnGround = targetChar->IsOnGround();
-					SwitchSkill = CharacterCore->GetSwitchSkill(useSkillOnGround);
-					
-				}
-				else
-				{
-					SwitchSkill = CharacterCore->GetSwitchSkill(bUseGroundSkill);
-					useSkillOnGround = bUseGroundSkill;
-				}
-				
-				SuccessfulAttack = SkillAttackBySkill(SwitchSkill);
-				if (SuccessfulAttack)
-				{
-					AutoTarget_Set(Target);
-					bIsSummoned = true;
-					// Use this for dealing with clipping through ground
-					GetCharacterMovement()->bRunPhysicsWithNoController = true;
-					/*if (!useSkillOnGround)
-					{
-						GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Falling);
-						TriggerAirTime(2.0f);
-					}*/
-				}					
-			}
+			
 		}
 		else
 		{
 			UE_LOG(LogTemp, Display, TEXT("Did not meet the summon requirement. Current level is %d and required level %d"),currentChainLevel,chainLevelReq);
-		}
+		}*/
 	}
 	else
 	{

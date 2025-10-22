@@ -3,6 +3,14 @@
 
 #include "GAS/AsyncTaskEffectStackChanged.h"
 
+UAsyncTaskEffectStackChanged* UAsyncTaskEffectStackChanged::ListenForGameplayEffectStackChange_CPP(UAbilitySystemComponent* AbilitySystemComponent, FGameplayTag EffectGameplayTag, bool ExactMatch, FStackChangeFunction&& FunctionToBind)
+{
+	UAsyncTaskEffectStackChanged* Task = ListenForGameplayEffectStackChange(AbilitySystemComponent, EffectGameplayTag, ExactMatch);
+	Task->OnGameplayEffectStackChangeCPP.Add(FunctionToBind);
+
+	return Task;
+}
+
 UAsyncTaskEffectStackChanged * UAsyncTaskEffectStackChanged::ListenForGameplayEffectStackChange(UAbilitySystemComponent * AbilitySystemComponent, FGameplayTag InEffectGameplayTag, bool ExactMatch)
 {
 	UAsyncTaskEffectStackChanged* ListenForGameplayEffectStackChange = NewObject<UAsyncTaskEffectStackChanged>();
@@ -37,7 +45,10 @@ void UAsyncTaskEffectStackChanged::EndTask()
 		{
 			ASC->OnGameplayEffectStackChangeDelegate(ActiveEffectHandle)->RemoveAll(this);
 		}
+
 	}
+
+	OnGameplayEffectStackChangeCPP.RemoveAll(this);
 
 	SetReadyToDestroy();
 	MarkAsGarbage();
@@ -80,6 +91,7 @@ void UAsyncTaskEffectStackChanged::OnActiveGameplayEffectAddedCallback(UAbilityS
 			UE_LOG(LogTemp, Display, TEXT("Effect being increased %s"), *(ReturnTagBasedOnContainer(TagContainer).GetTagName().ToString()));
 			ASC->OnGameplayEffectStackChangeDelegate(ActiveHandle)->AddUObject(this, &UAsyncTaskEffectStackChanged::GameplayEffectStackChanged);
 			OnGameplayEffectStackChange.Broadcast(ReturnTagBasedOnContainer(TagContainer), ActiveHandle, 1, 0);
+			OnGameplayEffectStackChangeCPP.Broadcast(ReturnTagBasedOnContainer(TagContainer), ActiveHandle, 1, 0);
 			ActiveEffectHandle = ActiveHandle;
 		}
 	}
@@ -90,6 +102,7 @@ void UAsyncTaskEffectStackChanged::OnActiveGameplayEffectAddedCallback(UAbilityS
 			UE_LOG(LogTemp, Display, TEXT("Effect being increased %s"), *(ReturnTagBasedOnContainer(TagContainer).GetTagName().ToString()));
 			ASC->OnGameplayEffectStackChangeDelegate(ActiveHandle)->AddUObject(this, &UAsyncTaskEffectStackChanged::GameplayEffectStackChanged);
 			OnGameplayEffectStackChange.Broadcast(ReturnTagBasedOnContainer(TagContainer), ActiveHandle, 1, 0);
+			OnGameplayEffectStackChangeCPP.Broadcast(ReturnTagBasedOnContainer(TagContainer), ActiveHandle, 1, 0);
 			ActiveEffectHandle = ActiveHandle;
 		}
 	}
@@ -114,6 +127,8 @@ void UAsyncTaskEffectStackChanged::OnRemoveGameplayEffectCallback(const FActiveG
 		{
 			UE_LOG(LogTemp, Display, TEXT("Effect being removed %s"), *(ReturnTagBasedOnContainer(TagContainer).GetTagName().ToString()));
 			OnGameplayEffectStackChange.Broadcast(ReturnTagBasedOnContainer(TagContainer), EffectRemoved.Handle, 0, 1);
+			OnGameplayEffectStackChangeCPP.Broadcast(ReturnTagBasedOnContainer(TagContainer), EffectRemoved.Handle, 0, 1);
+
 		}
 	}
 	else
@@ -122,6 +137,7 @@ void UAsyncTaskEffectStackChanged::OnRemoveGameplayEffectCallback(const FActiveG
 		{
 			UE_LOG(LogTemp, Display, TEXT("Effect being removed %s"), *(ReturnTagBasedOnContainer(TagContainer).GetTagName().ToString()));
 			OnGameplayEffectStackChange.Broadcast(ReturnTagBasedOnContainer(TagContainer), EffectRemoved.Handle, 0, 1);
+			OnGameplayEffectStackChangeCPP.Broadcast(ReturnTagBasedOnContainer(TagContainer), EffectRemoved.Handle, 0, 1);
 		}
 	}
 }
@@ -130,4 +146,5 @@ void UAsyncTaskEffectStackChanged::GameplayEffectStackChanged(FActiveGameplayEff
 {
 	UE_LOG(LogTemp, Display, TEXT("Stack changed!"));
 	OnGameplayEffectStackChange.Broadcast(EffectGameplayTag, EffectHandle, NewStackCount, PreviousStackCount);
+	OnGameplayEffectStackChangeCPP.Broadcast(EffectGameplayTag, EffectHandle, NewStackCount, PreviousStackCount);
 }

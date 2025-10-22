@@ -16,6 +16,7 @@ void UPlayerSkill::ExpendSkillEnergy(float EnergyUseRatio)
 {
 	if (IsReadyToUse())
 	{
-		CurrentEnergy = (1.0 - EnergyUseRatio) * EnergyCost;
+		if(!bInfiniteEnergy)
+			CurrentEnergy = (1.0 - EnergyUseRatio) * EnergyCost;
 	}
 }

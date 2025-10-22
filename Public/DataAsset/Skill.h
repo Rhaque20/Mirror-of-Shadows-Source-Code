@@ -68,6 +68,9 @@ class MIRROROFSHADOWS_API USkill : public UDataAsset
 		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Status Effect Influence")
 		float ResistanceToSilence = 0.0f;
 
+		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "State Requirement")
+		FGameplayTag StateRequirement;
+
 	public:
 		UFUNCTION(BlueprintCallable)
 		UAnimMontage* GetAnimation(int index) const;
@@ -93,4 +96,5 @@ class MIRROROFSHADOWS_API USkill : public UDataAsset
 		float GetLaunchForce() const { return LaunchForce; }
 		FString GetSkillName() const { return SkillName; }
 		FGameplayTag GetSkillElement() const { return SkillElement; }
+		FGameplayTag GetStateRequirement() const { return StateRequirement; }
 };

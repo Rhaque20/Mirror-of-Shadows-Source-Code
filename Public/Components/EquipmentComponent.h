@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
 #include "GameplayTagAssetInterface.h"
+#include "Structs/ArmorDataStruct.h"
 
 #include "EquipmentComponent.generated.h"
 
@@ -20,9 +21,45 @@ class MIRROROFSHADOWS_API UEquipmentComponent : public UActorComponent,public IG
         UPROPERTY(BlueprintReadWrite, Category = "Gameplay Tag")
 	    FGameplayTagContainer GameplayTagContainer;
 
+        UPROPERTY(BlueprintReadOnly,EditAnywhere, Category = "Equipment")
+        TMap<FGameplayTag, FArmorData> EquippedArmor;
+
+        UPROPERTY(BlueprintReadOnly,EditDefaultsOnly,Category = "EquipmentEffect")
+        TSubclassOf<class UGameplayEffect> HelmetEffect;
+
+        UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "EquipmentEffect")
+        TSubclassOf<class UGameplayEffect> ChestPlateEffect;
+
+        UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "EquipmentEffect")
+        TSubclassOf<class UGameplayEffect> BracerEffect;
+
+        UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "EquipmentEffect")
+        TSubclassOf<class UGameplayEffect> NecklaceEffect;
+
+        UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "EquipmentEffect")
+        TSubclassOf<class UGameplayEffect> RingEffect;
+
+        UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "EquipmentEffect")
+        TSubclassOf<class UGameplayEffect> RingElementalEffect;
+
+        class UAbilitySystemComponent *OwningASC;
+
     public:
+        void BeginPlay() override;
         UFUNCTION(BlueprintCallable)
         void CheckSetBonus();
+
+        UFUNCTION()
+        void TurnArmorIntoStats(FArmorData ArmorEquipped);
+
+        UFUNCTION(BlueprintCallable)
+        bool EquipArmorInSlot(FArmorData ArmorToWear,FArmorData& OccupiedArmor);
+
+        UFUNCTION(BlueprintCallable)
+        FArmorData UnEquipArmor(FGameplayTag SlotToUnequip);
+
+        UFUNCTION(BlueprintCallable)
+        FArmorData GetArmorDataFromSlot(FGameplayTag EquipmentSlot) const;
 
         virtual void GetOwnedGameplayTags(FGameplayTagContainer& OwnedTags) const override
         {

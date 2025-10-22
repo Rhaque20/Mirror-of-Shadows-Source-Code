@@ -5,10 +5,17 @@
 #include "CoreMinimal.h"
 #include <map>
 #include "GameFramework/Actor.h"
-#include "EnemyCharacterBase.h"
+#include "Enumerator/GameDifficultyEnum.h"
+#include "GameplayTagContainer.h"
+
 #include "EnemyGrouperSystem.generated.h"
 
-//using EnemyMap = TMap<FString, AEnemyCharacterBase*>;
+class AEnemyCharacterBase;
+class AEnemyGroupBehaviorManager;
+using EnemyMap = TMap<FString, AEnemyCharacterBase*>;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAllEnemiesDead);
+
 
 UCLASS()
 class MIRROROFSHADOWS_API AEnemyGrouperSystem : public AActor
@@ -23,19 +30,58 @@ public:
     void SpawnAllEnemies();
 
     UFUNCTION(BlueprintCallable, Category = "Enemy Spawning")
+    bool SpawnEnemy(int32 idx);
+
+    UFUNCTION(BlueprintCallable, Category = "Enemy Spawning")
+    void SpawnEnemyBatch(); 
+
+    UFUNCTION(BlueprintCallable, Category = "Enemy Spawning")
+    void GrouperSetup();
+
+    UFUNCTION(BlueprintCallable, Category = "Enemy Spawning")
+    int32 RandomSpawnLocation();
+
+    UFUNCTION(BlueprintCallable, Category = "Enemy Spawning")
+    bool IsEnemyDead();
+
+    UFUNCTION(BlueprintCallable, Category = "Enemy Spawning")
+    bool IsEnemyBatchDead();
+
+    UFUNCTION()
+    void HandleEnemyDeath(ARPGCharacterBase* charBase);
+
+    UFUNCTION()
+    void OnEnemyDeath(ARPGCharacterBase* charBase);
+
     AEnemyCharacterBase* SpawnEnemyByIndex(int32 TypeIndex, const FVector& Location, const FRotator& Rotation);
 
-    UPROPERTY(EditAnywhere, Category = "Enemy Spawning")
-    bool spawnAllEnemiesAtOnce = false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy Difficulty")
+    EEnemyDifficulty spawningLevel;
 
-    UPROPERTY(EditInstanceOnly, Category = "Enemy Types")
+    // Each enemy class in this list represents the order of enemies to be spawned into the level
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy Types and Location")
     TArray<TSubclassOf<AEnemyCharacterBase>> enemyInstList;
 
-    UPROPERTY(EditInstanceOnly, Category = "Enemy Types")
-    TArray<int32> numOfEnemiesPerType;
+    // List of spawnLocation will allow us to randomize which enemies are spawned where in this map
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy Types and Location", Meta = (MakeEditWidget = true))
+    TArray<FTransform> spawnLocations;
+
+    // Determines the number of spawnLocation elements in Blueprints
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy Types and Location")
+    int32 batchSize = 0;
 
     UPROPERTY(VisibleInstanceOnly, Category = "Enemy Types")
     TArray<FString> enemyNames;
+
+    UPROPERTY(BlueprintReadOnly,EditDefaultsOnly)
+    TSubclassOf<AEnemyGroupBehaviorManager> GroupBehaviorBPRef;
+
+    UPROPERTY(BlueprintAssignable,BlueprintCallable)
+    FOnAllEnemiesDead OnAllEnemiesDead;
+
+    UPROPERTY(BlueprintReadOnly,EditInstanceOnly)
+    TArray<class AItemChest*> ItemChestsOwned;
+
 
 protected:
 	// Called when the game starts or when spawned
@@ -46,7 +92,13 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 private:
-    TMap<FString, AEnemyCharacterBase*> _enemyClassMap;
-    TArray<int32> _enemyCounter;
+    EnemyMap _enemyClassMap;
+    TArray<int32> _usedSpawnLocals;
     int32 _amtOfEnemies;
+    int32 _batchItr;
+    int32 _nmeItr;
+	int32 _enemyDeaths = 0;
+
+    AEnemyGroupBehaviorManager* GroupManager;
+
 };

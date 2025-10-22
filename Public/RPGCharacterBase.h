@@ -12,6 +12,7 @@
 
 #include "RPGCharacterBase.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDeath, ARPGCharacterBase*, charBase);
 
 class UStaggerComponent;
 class UStatusEffectComponent;
@@ -99,8 +100,10 @@ class MIRROROFSHADOWS_API ARPGCharacterBase : public ACharacter,public IAbilityS
 
         UFUNCTION(BlueprintCallable)
         void StopDodgeTimeLine();
+
         UFUNCTION(BlueprintCallable)
         void HardPlungeState(bool bHardPlungeToggle, float DiveVelocity);
+
         UFUNCTION()
         virtual void DodgeFunction(float val);
 
@@ -110,6 +113,10 @@ class MIRROROFSHADOWS_API ARPGCharacterBase : public ACharacter,public IAbilityS
         void AttachWeaponsToSockets();
 
         void InitializeAttributes();
+
+    public:
+        UPROPERTY(BlueprintAssignable, BlueprintCallable,Category = "CharacterDeath")
+        FOnDeath CharacterDied;
 
     protected:
         UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
@@ -154,6 +161,9 @@ class MIRROROFSHADOWS_API ARPGCharacterBase : public ACharacter,public IAbilityS
 
         UPROPERTY(BlueprintReadOnly,EditDefaultsOnly)
         float GroundCheckDistance = 10.0f;
+
+        UPROPERTY(BlueprintReadOnly)
+        float OriginalMoveSpeed = 0.0f;
 
         UPROPERTY(BlueprintReadWrite,EditDefaultsOnly, Category = "Weapon Props",meta = (ToolTip = "Static Mesh Reference For First Weapon"))
         UStaticMeshComponent* WeaponProp1;

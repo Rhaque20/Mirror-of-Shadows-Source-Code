@@ -16,6 +16,10 @@ class MIRROROFSHADOWS_API UPlayerSkill : public USkill
 	protected:
 		UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="SP System")
 		bool bHasNRGCost = true;
+
+		UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SP System", meta = (EditCondition = "bHasNRGCost", EditConditionHides))
+		bool bInfiniteEnergy = false;
+
 		UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bHasNRGCost", EditConditionHides, ClampMin = 1.0f), Category = "SP System")
 		float EnergyCost = 1.f;
 		UPROPERTY(BlueprintReadWrite, EditDefaultsOnly,meta = (EditCondition = "bHasNRGCost", EditConditionHides), Category = "SP System")
@@ -31,7 +35,7 @@ class MIRROROFSHADOWS_API UPlayerSkill : public USkill
 
 	public:
 		UFUNCTION(BlueprintCallable)
-		bool IsReadyToUse() const { return SkillEnergyRatio() >= 1.0f; }
+		bool IsReadyToUse() const { return bInfiniteEnergy || SkillEnergyRatio() >= 1.0f; }
 		UFUNCTION(BlueprintCallable)
 		float SkillEnergyRatio() const { return CurrentEnergy / EnergyCost; }
 		UFUNCTION(BlueprintCallable)

@@ -8,8 +8,13 @@
 
 #include "EnemyCharacterBase.generated.h"
 
+DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(bool, FGetTicketDelegate, AEnemyCharacterBase*, Requester, FGameplayTag, TicketToRequest);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FReturnTicketDelegate, AEnemyCharacterBase*, Returner, FGameplayTag, TicketToReturn);
+DECLARE_DELEGATE_TwoParams(FReturnTicketFunction, AEnemyCharacterBase*, FGameplayTag);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDetectedPlayer,AActor*, DetectedActor);
 
 class UStaggerComponent;
+
 UCLASS()
 class MIRROROFSHADOWS_API AEnemyCharacterBase : public ARPGCharacterBase
 {
@@ -37,12 +42,51 @@ public:
 
 	virtual void AutoTarget();
 
+	UFUNCTION(BlueprintCallable)
+	void ReceivePlayerTarget(AActor* PlayerRef);
+
+	UFUNCTION(BlueprintCallable)
+	void CleanUp();
+
+	UFUNCTION()
+	void ReceiveTicket(FGameplayTag TicketToReceive);
+
+	UFUNCTION(BlueprintCallable)
+	void ReturnTicket();
+
+	UFUNCTION()
+	void UseSkill(UEnemySkill* Skill);
+
+	UFUNCTION()
+	void PreparingForAttack();
+
+	UFUNCTION()
+	void OnAttackDelayStatusChange(FGameplayTag DelayTag,struct FActiveGameplayEffectHandle EffectHandle, int32 NewStackCount, int32 PreviousStackCount);
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-protected:
+public:
+    UPROPERTY(BlueprintReadOnly, EditAnywhere)
+    int32 SpawnPortalIdx;
 
+	// FGetTicketDelegate cannot be blueprint callable
+	UPROPERTY(BlueprintReadOnly)
+	FGetTicketDelegate OnRequestTicket;
+
+	UPROPERTY(BlueprintReadOnly)
+	FGetTicketDelegate OnStealTicket;
+
+	UPROPERTY(BlueprintReadOnly,BlueprintCallable)
+	FReturnTicketDelegate OnReturnTicket;
+
+	UPROPERTY(BlueprintReadOnly,BlueprintCallable)
+	FOnDetectedPlayer OnDetectedPlayer;
+
+
+
+protected:
 	UPROPERTY(BlueprintReadWrite,EditAnywhere)
 	bool IsAttacking = false;
 
@@ -65,6 +109,16 @@ protected:
 	AActor* AttackTarget;
 
 	class USkillCooldownManagerComponent* SkillCooldownManager;
+
+	class UAsyncTaskEffectStackChanged* AttackDelayListener;
+
+	FTimerHandle DecisionTimerHandle;
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
+	float DecisionTickInterval = 0.25f;
+
+	FGameplayTag CurrentTicket = FGameplayTag::EmptyTag;
+
 
 public:	
 	// Called every frame

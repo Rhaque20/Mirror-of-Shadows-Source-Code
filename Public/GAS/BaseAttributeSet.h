@@ -118,6 +118,10 @@ class MIRROROFSHADOWS_API UBaseAttributeSet : public UAttributeSet
 		FGameplayAttributeData AttackSpeed;
 		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet,AttackSpeed);
 
+		UPROPERTY(BlueprintReadOnly, Category = "Move Speed")
+		FGameplayAttributeData MoveSpeed;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet,MoveSpeed);
+
 		UPROPERTY(BlueprintReadOnly, Category = "Charge Rate")
 		FGameplayAttributeData ChargeRate;
 		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet,ChargeRate);

@@ -21,6 +21,13 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_Effect_State_OffField, "Effect.State.OffField")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Effect_State_Airborne, "Effect.State.Airborne")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Effect_State_OnGround, "Effect.State.OnGround")
 
+UE_DEFINE_GAMEPLAY_TAG(TAG_Effect_State_AttackDelay, "Effect.State.AttackDelay")
+
+//For combat tickets
+UE_DEFINE_GAMEPLAY_TAG(TAG_EnemyAI_Ticket_Melee, "EnemyAI.Ticket.Melee")
+UE_DEFINE_GAMEPLAY_TAG(TAG_EnemyAI_Ticket_Range, "EnemyAI.Ticket.Range")
+
+UE_DEFINE_GAMEPLAY_TAG(TAG_Ability_Input_NormalAttack, "Ability.Input.NormalAttack")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Ability_Input_Skill, "Ability.Input.Skill")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Ability_Input_Jump, "Ability.Input.Jump")
 

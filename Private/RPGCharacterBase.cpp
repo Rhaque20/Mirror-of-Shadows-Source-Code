@@ -213,6 +213,8 @@ void ARPGCharacterBase::BeginPlay()
 
 	AttachWeaponsToSockets();
 	InitializeAttributes();
+
+	OriginalMoveSpeed = GetCharacterMovement()->GetMaxSpeed();
 }
 
 void ARPGCharacterBase::Tick(float DeltaTime)

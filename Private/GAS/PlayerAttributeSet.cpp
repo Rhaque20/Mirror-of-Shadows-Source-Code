@@ -37,9 +37,9 @@ void UPlayerAttributeSet::HandleEvaluatedData(const FGameplayEffectModCallbackDa
 
 void UPlayerAttributeSet::RecalculateTotalHP()
 {
-    float HPBonusfromPercent = (float)FMath::RoundToInt(GetHP() * GetHPBonusPercent());
     float HPBonusfromFlat = GetHPBonusFlat();
-    float FinalHP = GetHP() + HPBonusfromPercent + HPBonusfromFlat;
+    float HPBonusfromPercent = GetHPBonusPercent();
+    float FinalHP = (GetHP() + HPBonusfromFlat) * (1.0f + HPBonusfromPercent);
     SetTotalHP(FinalHP);
     SetCurrentHP(FinalHP * HPRatio);
     UE_LOG(LogTemp, Display, TEXT("HP Ratio is %f"),HPRatio);
