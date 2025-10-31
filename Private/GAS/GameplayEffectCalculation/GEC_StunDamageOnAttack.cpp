@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "GAS/GEC_StunDamageOnAttack.h"
+#include "GAS/GameplayEffectCalculation/GEC_StunDamageOnAttack.h"
 #include "GAS/BaseAttributeSet.h"
 #include "GAS/EnemyAttributeSet.h"
 #include "GAS/PlayerAttributeSet.h"

@@ -45,7 +45,7 @@ bool UInventoryComponent::AddArmor(FArmorData ArmorData)
 	Spec.bCanStack = false;
 	Spec.ItemCategory = EItemCategory::Armor;
 	Inventory.Add(Spec);
-	IndexedEquipmentStorage.Add(Inventory.Num()-1,ArmorData);
+	IndexedEquipmentStorage.Add(ArmorData.ArmorGUID,Spec);
 
 	return true;
 }
@@ -55,7 +55,9 @@ bool UInventoryComponent::AddItemMaterial(FRPGMaterialData Material)
 	FItemSpec Spec;
 	if (IndexedItemStorage.Contains((Material.ItemName)))
 	{
-		Spec = Inventory[IndexedItemStorage[Material.ItemName]];
+		FItemSpec tempSpec = IndexedItemStorage[Material.ItemName];
+		int index = Inventory.Find(tempSpec);
+		Spec = Inventory[index];
 		Spec.Stacks++;
 		IndexedItemStorage.Add(Material.ItemName,IndexedItemStorage[Material.ItemName]);
 	}
@@ -70,8 +72,9 @@ bool UInventoryComponent::AddItemMaterial(FRPGMaterialData Material)
 		Spec.bCanStack = false;
 		Spec.ItemCategory = EItemCategory::CraftingMaterial;
 		Spec.ItemName = Material.ItemName;
+		
 		Inventory.Add(Spec);
-		IndexedItemStorage.Add(Spec.ItemName,Inventory.Num()-1);
+		IndexedItemStorage.Add(Spec.ItemName,Spec);
 	}
 
 	return true;
@@ -85,5 +88,33 @@ FArmorData UInventoryComponent::GetArmorData(FItemSpec ItemSpec)
 		return *ItemSpec.RetrieveItem<FArmorData>();
 	}
 	return FArmorData();
+}
+
+bool UInventoryComponent::RemoveArmor(FArmorData Armor)
+{
+	FGuid ArmorID = Armor.ArmorGUID;
+	if (IndexedEquipmentStorage.Contains(ArmorID))
+	{
+		FItemSpec Data = IndexedEquipmentStorage[ArmorID];
+		IndexedEquipmentStorage.Remove(ArmorID);
+		int i;
+		for (i = 0; i < Inventory.Num();i++)
+		{
+			if (Inventory[i].ItemCategory == EItemCategory::Armor)
+			{
+				if (*Inventory[i].RetrieveItem<FArmorData>() == Armor)
+					break;
+			}
+		}
+
+		if (i < Inventory.Num())
+		{
+			Inventory.RemoveAt(i);
+			OnRemoveArmor.Broadcast(Armor);
+			return true;
+		}
+	}
+
+	return false;
 }
 

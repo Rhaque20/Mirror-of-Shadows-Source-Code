@@ -8,23 +8,23 @@
 #include "Enumerator/GameDifficultyEnum.h"
 #include "GameplayTagContainer.h"
 
-#include "EnemyGrouperSystem.generated.h"
+#include "EnemySpawnerSystem.generated.h"
 
 class AEnemyCharacterBase;
 class AEnemyGroupBehaviorManager;
 using EnemyMap = TMap<FString, AEnemyCharacterBase*>;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAllEnemiesDead);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAllEnemiesDead,AEnemySpawnerSystem*,DefeatedSpawner);
 
 
 UCLASS()
-class MIRROROFSHADOWS_API AEnemyGrouperSystem : public AActor
+class MIRROROFSHADOWS_API AEnemySpawnerSystem : public AActor
 {
 	GENERATED_BODY()
 
 public:	
 	// Sets default values for this actor's properties
-	AEnemyGrouperSystem();
+	AEnemySpawnerSystem();
 
     UFUNCTION(BlueprintCallable, Category = "Enemy Spawning")
     void SpawnAllEnemies();
@@ -81,6 +81,15 @@ public:
 
     UPROPERTY(BlueprintReadOnly,EditInstanceOnly)
     TArray<class AItemChest*> ItemChestsOwned;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	TSubclassOf<class AInvisibleBarrierSystem> InvisibleBarrierClass;
+
+	UPROPERTY(BlueprintReadOnly,EditInstanceOnly)
+	AInvisibleBarrierSystem* InvisibleBarrierSystem;
+
+	UPROPERTY(BlueprintReadOnly,EditInstanceOnly, Meta = (MakeEditWidget = true))
+	TArray<FVector> FlyingSpots;
 
 
 protected:

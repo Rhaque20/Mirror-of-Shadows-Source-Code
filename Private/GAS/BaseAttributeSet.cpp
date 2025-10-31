@@ -96,6 +96,12 @@ void UBaseAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 			}
         }
     }
+	else if (Data.EvaluatedData.Attribute == GetHealthRestoredAttribute())
+	{
+		const float AmountHealed = GetHealthRestored();
+		SetHealthRestored(0.0f);
+		SetCurrentHP(FMath::Clamp(GetCurrentHP() + AmountHealed, 0.0f,GetTotalHP()));
+	}
 	else if (Data.EvaluatedData.Attribute == GetStatusDMGAttribute())
 	{
 		float statusDMG = GetStatusDMG();
@@ -130,29 +136,70 @@ void UBaseAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 		HandleEvaluatedData(Data,true);
 }
 
-void UBaseAttributeSet::HandleEvaluatedData(const FGameplayEffectModCallbackData& Data, bool IsPostEffect) 
+void UBaseAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
 {
-	if (Data.EvaluatedData.Attribute == GetHPAttribute())
+	Super::PostAttributeChange(Attribute, OldValue, NewValue);
+
+	if (Attribute == GetHPAttribute() || Attribute == GetHPBonusPercentAttribute())
 	{
 		RecalculateTotalHP();
-		SetCurrentHP(GetHP());
 		UE_LOG(LogTemp, Display, TEXT("HP is now %f with max HP of %f"),GetCurrentHP(),GetHP());
 	}
-	else if(Data.EvaluatedData.Attribute == GetATKBonusPercentAttribute())
+	else if(Attribute == GetATKBonusPercentAttribute() || Attribute == GetATKAttribute())
 	{
 		UE_LOG(LogTemp, Display, TEXT("Gained %f Percent ATK"),GetATKBonusPercent());
+		RecalculateTotalATK();
 	}
-	
+	else if(Attribute == GetDEFBonusPercentAttribute() || Attribute == GetDEFAttribute())
+	{
+		RecalculateTotalDEF();
+	}
 }
 
-void UBaseAttributeSet::PoiseBreak(const FGameplayEffectModCallbackData& Data) 
+void UBaseAttributeSet::HandleEvaluatedData(const FGameplayEffectModCallbackData& Data, bool IsPostEffect) 
 {
-	
+	if (Data.EvaluatedData.Attribute == GetHPAttribute() || Data.EvaluatedData.Attribute == GetHPBonusPercentAttribute())
+	{
+		RecalculateTotalHP();
+		UE_LOG(LogTemp, Display, TEXT("HP is now %f with max HP of %f"),GetCurrentHP(),GetHP());
+	}
+	else if(Data.EvaluatedData.Attribute == GetATKBonusPercentAttribute() || Data.EvaluatedData.Attribute == GetATKAttribute())
+	{
+		UE_LOG(LogTemp, Display, TEXT("Gained %f Percent ATK"),GetATKBonusPercent());
+		RecalculateTotalATK();
+	}
+	else if(Data.EvaluatedData.Attribute == GetDEFBonusPercentAttribute() || Data.EvaluatedData.Attribute == GetDEFAttribute())
+	{
+		RecalculateTotalDEF();
+	}
+	else if(Data.EvaluatedData.Attribute == GetCurrentHPAttribute())
+	{
+		RecalculateTotalHP();
+		UE_LOG(LogTemp, Display, TEXT("Setting Ratio of current HP"));
+		HPRatio = GetCurrentHP()/GetTotalHP();
+	}
 }
 
 void UBaseAttributeSet::RecalculateTotalHP()
 {
-	SetTotalHP(GetHP());
+	float HPBonusfromPercent = GetHPBonusPercent();
+	float FinalHP = (GetHP()) * (1.0f + HPBonusfromPercent);
+	FString Name = GetOwningActor()->GetName();
+	SetTotalHP(FinalHP);
+	SetCurrentHP(FinalHP * HPRatio);
+	UE_LOG(LogTemp, Display, TEXT("HP Ratio is %f for %s"),HPRatio, *Name);
+	UE_LOG(LogTemp, Display, TEXT("Recalculated HP of %s:  %f using base HP of %f, HP Bonus %f"),*Name,FinalHP,
+	GetHP(),HPBonusfromPercent);
+}
+
+void UBaseAttributeSet::RecalculateTotalATK()
+{
+	SetTotalATK((1 + GetATKBonusPercent()) * GetATK());
+}
+
+void UBaseAttributeSet::RecalculateTotalDEF()
+{
+	SetTotalDEF(GetDEF() *(1+GetDEFBonusPercent()));
 }
 
 // void UBaseAttributeSet::OnRep_CurrentHP(const FGameplayAttributeData& OldHP) 

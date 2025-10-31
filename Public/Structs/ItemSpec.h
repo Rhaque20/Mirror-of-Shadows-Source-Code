@@ -1,5 +1,8 @@
 #include "InstancedStruct.h"
 #include <GameplayTagContainer.h>
+
+#include "ArmorDataStruct.h"
+#include "RPGMaterialStruct.h"
 #include "GAS/UDGameplayTags.h"
 #include "Enumerator/ItemEnum.h"
 #include "Structs/RPGItemStruct.h"
@@ -70,6 +73,24 @@ struct FItemSpec
         
     }
 
+    bool operator==(const FItemSpec& Other) const
+    {
+        if (Other.ItemCategory == EItemCategory::Armor)
+        {
+            const FArmorData* thisArmorData = RetrieveItem<FArmorData>();
+            const FArmorData* otherArmorData = Other.RetrieveItem<FArmorData>();
+            return thisArmorData == otherArmorData;
+        }
+        else if (Other.ItemCategory == EItemCategory::CraftingMaterial)
+        {
+            const FRPGMaterialData* thisMaterialData = RetrieveItem<FRPGMaterialData>();
+            const FRPGMaterialData* otherMaterialData = RetrieveItem<FRPGMaterialData>();
+
+            return thisMaterialData == otherMaterialData;
+        }
+
+        return false;
+    }
 
 // Main function, use this
     // [[nodiscard]] means to return a compiler warning if the return value is not used after being called

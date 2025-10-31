@@ -19,4 +19,9 @@ struct FRPGMaterialData : public FRPGItemData
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EGrade ItemGrade;
+
+	bool operator==(const FRPGMaterialData& Other) const
+	{
+		return ItemName == Other.ItemName;
+	}
 };

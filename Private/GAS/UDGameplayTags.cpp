@@ -20,6 +20,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_Effect_Defensive_Block, "Effect.Defensive.Block");
 UE_DEFINE_GAMEPLAY_TAG(TAG_Effect_State_OffField, "Effect.State.OffField")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Effect_State_Airborne, "Effect.State.Airborne")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Effect_State_OnGround, "Effect.State.OnGround")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Effect_State_Dead, "Effect.State.Dead")
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_Effect_State_AttackDelay, "Effect.State.AttackDelay")
 
@@ -46,6 +47,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_Stats_Percent_ChargeRate, "Stats.Percent.ChargeRate")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Stats_Percent_SPGain, "Stats.Percent.SPGain")
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_Stats_Percent_LiteATKDMGUp,"Stats.Percent.LiteATKDMGUp")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Stats_Percent_ComboATKDMGUp,"Stats.Percent.ComboATKDMGUp")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Stats_Percent_HeavyATKDMGUp,"Stats.Percent.HeavyATKDMGUp")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Stats_Percent_StunDMGUp,"Stats.Percent.StunDMGUp")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Stats_Percent_SkillChainBoost,"Stats.Percent.SkillChainBoost")

@@ -3,13 +3,16 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AbilitySystemInterface.h"
 #include "GameFramework/PlayerController.h"
 #include "EnumLib.h"
 
 #include "PlayerPartyController.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSkillChainTimeDelegate, float, timeRatio);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FUnisonGaugeChange, float, SubGaugeRatio, float, MainGaugeRatio, UPaperSprite*,Icon);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FSkillChainAdvanceDelegate, int, chainLevel, EElement, SkillElement);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnGameOver);
 /**
  * 
  */
@@ -18,7 +21,7 @@ class APlayerCharacters;
 class UGameplayEffect;
 
 UCLASS()
-class MIRROROFSHADOWS_API APlayerPartyController : public APlayerController
+class MIRROROFSHADOWS_API APlayerPartyController : public APlayerController,public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 	public:
@@ -27,6 +30,11 @@ class MIRROROFSHADOWS_API APlayerPartyController : public APlayerController
 		int GetSkillChainLevel() const
 		{
 			return SkillChainLevel;
+		}
+
+		virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override
+		{
+			return AbilitySystem;
 		}
 
 		UFUNCTION(BlueprintCallable)
@@ -43,6 +51,29 @@ class MIRROROFSHADOWS_API APlayerPartyController : public APlayerController
 		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 		int CurrentCharacterIndex = 0;
 		int AliveMembersRemaining = 0;
+
+		UPROPERTY(BlueprintReadOnly)
+		float UnisonGaugeAmount = 0.0f;
+
+		UPROPERTY(BlueprintReadOnly,EditDefaultsOnly, Category = "Unison Gauge")
+		float UnisonGaugeMax = 500.0f;
+
+		UPROPERTY(BlueprintReadOnly,EditDefaultsOnly, Category = "Unison Gauge")
+		float UnisonGaugeGainBase = 10.0f;
+
+		UPROPERTY(BlueprintReadOnly,EditDefaultsOnly, Category = "Unison Gauge", meta =(ToolTip="This is for every level AFTER 1"))
+		float UnisonGaugeGainPerLevel = 10.0f;
+
+		UPROPERTY(BlueprintReadOnly)
+		int CurrentUnisonSkill = -1;
+
+		UPROPERTY(BlueprintReadOnly)
+		float CurrentSkillCost = 0.0f;
+
+		class UPaperSprite* SkillIcon;
+
+		UPROPERTY(BlueprintReadOnly,EditDefaultsOnly, Category = "Unison Gauge")
+		TArray<class UUnisonSkill*> UnisonSkills;
 
 		UPROPERTY(BlueprintReadWrite, EditDefaultsOnly)
 		int SkillChainLevel = 0;
@@ -71,6 +102,29 @@ class MIRROROFSHADOWS_API APlayerPartyController : public APlayerController
 
 		bool bExtendChainThree = true;
 		bool bIsTimerActive = true;
+
+		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+		bool bGodMode = false;
+
+		UPROPERTY(BlueprintReadWrite)
+		TArray<APlayerCharacters*> SummonedActorReferences;
+
+		TArray<bool> bIsPlayerDead;
+
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<class UPlayerData*> PartyMemberData;
+
+		UPROPERTY()
+		FTimerHandle ChainTimerHandle;
+
+		UPROPERTY(BlueprintReadOnly,EditDefaultsOnly, Category = "Gameplay Effects")
+		TSubclassOf<UGameplayEffect> OfffieldState;
+
+		UPROPERTY(BlueprintReadOnly,EditDefaultsOnly, Category = "Gameplay Effects")
+		TSubclassOf<UGameplayEffect> ForceSwapImmunityEffect;
+
+		UPROPERTY(BlueprintReadOnly,VisibleAnywhere, Category = "Gameplay Effects")
+		UAbilitySystemComponent* AbilitySystem;
 	protected:
 		virtual void BeginPlay();
 		UFUNCTION(BlueprintCallable)
@@ -88,6 +142,12 @@ class MIRROROFSHADOWS_API APlayerPartyController : public APlayerController
 
 		UFUNCTION()
 		void ChainTimerUpdate();
+
+		UFUNCTION()
+		void OnPlayerDeath(class ARPGCharacterBase* PlayerCharacter);
+
+		UFUNCTION(BlueprintCallable)
+		void ActivateUnisonSkill();
 
 		void StartChainTimer();
 
@@ -116,18 +176,9 @@ class MIRROROFSHADOWS_API APlayerPartyController : public APlayerController
 		UPROPERTY(BlueprintAssignable, Category = "SkillChainTimeUpdate")
 		FSkillChainAdvanceDelegate SkillChainAdvance;
 
-		
+		UPROPERTY(BlueprintAssignable,BlueprintCallable)
+		FOnGameOver GameOver;
 
-	protected:
-		UPROPERTY(BlueprintReadWrite)
-		TArray<APlayerCharacters*> SummonedActorReferences;
-
-		UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		TArray<class UPlayerData*> PartyMemberData;
-
-		UPROPERTY()
-		FTimerHandle ChainTimerHandle;
-
-		UPROPERTY(BlueprintReadOnly,EditDefaultsOnly)
-		TSubclassOf<UGameplayEffect> OfffieldState;
+		UPROPERTY(BlueprintAssignable,BlueprintCallable)
+		FUnisonGaugeChange OnUnisonGaugeChange;
 };

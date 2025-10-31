@@ -17,6 +17,11 @@ UAbilitySystemComponent* ARPGCharacterBase::GetAbilitySystemComponent() const
     return AbilitySystem;
 }
 
+bool ARPGCharacterBase::IsDead() const
+{
+	return AbilitySystem->HasMatchingGameplayTag(TAG_Effect_State_Dead);
+}
+
 bool ARPGCharacterBase::IsImmobile() const
 {
 	return AbilitySystem->HasAnyMatchingGameplayTags(ImmobilizedTags);
@@ -302,7 +307,7 @@ void ARPGCharacterBase::StunBreak()
 		UE_LOG(LogTemp, Display, TEXT("Granting stance break effect"));
 		FGameplayEffectSpecHandle SpecHandle = AbilitySystem->MakeOutgoingSpec(StunEffect, 1, AbilitySystem->MakeEffectContext());
 		FGameplayEffectSpec Spec = *(SpecHandle.Data).Get();
-		Spec.SetSetByCallerMagnitude(TAG_Effect_State_Stagger_Stunned,3.0f);
+		Spec.SetSetByCallerMagnitude(TAG_Effect_State_Stagger_Stunned,StunTime);
 		AbilitySystem->ApplyGameplayEffectSpecToSelf(Spec);
 	}
 

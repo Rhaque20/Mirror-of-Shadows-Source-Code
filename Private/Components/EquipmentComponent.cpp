@@ -34,27 +34,18 @@ void UEquipmentComponent::CheckSetBonus()
 
 void UEquipmentComponent::TurnArmorIntoStats(FArmorData ArmorEquipped)
 {
-    TSubclassOf<UGameplayEffect> EquipmentEffect = NULL;
     FGameplayTag SlotTag = ArmorEquipped.EquipmentSlot;
-    if (SlotTag == TAG_Equipment_Armor_Helmet)
-    {
-        EquipmentEffect = HelmetEffect;
-    }
-    else if (SlotTag == TAG_Equipment_Armor_Chestplate)
-    {
-        EquipmentEffect = ChestPlateEffect;
-    }
 
-    if (!IsValid(EquipmentEffect))
+    if (!IsValid(ArmorEffect))
     {
         UE_LOG(LogTemp, Error, TEXT("No effect for an equipment effect"));
         return;
     }
         
-    FGameplayEffectSpecHandle SpecHandle = OwningASC->MakeOutgoingSpec(EquipmentEffect,0, OwningASC->MakeEffectContext());
+    FGameplayEffectSpecHandle SpecHandle = OwningASC->MakeOutgoingSpec(ArmorEffect,0, OwningASC->MakeEffectContext());
 
     TMap<FGameplayTag, float> AccumulatedStats = TMap<FGameplayTag,float>();
-
+    
     AccumulatedStats.Add(ArmorEquipped.MainStat, ArmorEquipped.MainStatValue);
 
     for(TMap<FGameplayTag,float>::TRangedForIterator Itr = ArmorEquipped.Substats.begin(); Itr != ArmorEquipped.Substats.end(); ++Itr)
@@ -83,14 +74,19 @@ void UEquipmentComponent::TurnArmorIntoStats(FArmorData ArmorEquipped)
     {
         UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, Itr2->Key, Itr2->Value);
         i++;
-        if (i == 5)
+        if (i == 4)
         {
             UE_LOG(LogTemp, Error, TEXT("Infinite loop detected!"));
             break;
         }
     }
 
-    OwningASC->ApplyGameplayEffectSpecToSelf(*(SpecHandle.Data));
+    if (SpecHandle.IsValid())
+        UE_LOG(LogTemp, Error, TEXT("Valid spec"));
+
+    SpecHandle.Data->DynamicGrantedTags.AddTag(SlotTag);
+    
+    OwningASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data);
 
 }
 
@@ -106,7 +102,7 @@ bool UEquipmentComponent::EquipArmorInSlot(FArmorData ArmorToWear,FArmorData& Oc
 
     EquippedArmor.Add(SlotToSwap, ArmorToWear);
 
-    return true;
+    return OccupiedArmor.EquipmentSlot == FGameplayTag::EmptyTag;
 }
 
 FArmorData UEquipmentComponent::UnEquipArmor(FGameplayTag SlotToUnequip)

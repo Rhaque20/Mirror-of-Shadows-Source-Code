@@ -14,8 +14,8 @@ class UItemBlueprintLibrary :
 {
 	GENERATED_BODY()
 
-	UFUNCTION(BlueprintCallable, Category = "Spec Fragment")
-	static FItemSpec GenerateArmor(FGameplayTag SetTag, FGameplayTag SlotTag,EGrade Rarity);
+	// UFUNCTION(BlueprintCallable, Category = "Spec Fragment")
+	// static FItemSpec GenerateArmor(FGameplayTag SetTag, FGameplayTag SlotTag,EGrade Rarity);
 
 	// UFUNCTION(BlueprintCallable, Category = "Spec Fragment")
 	// static FEquipmentMainStat FindMainStatData(const FItemSpec& Spec, bool& bDidFind);

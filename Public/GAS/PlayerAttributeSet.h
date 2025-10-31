@@ -54,10 +54,14 @@ class MIRROROFSHADOWS_API UPlayerAttributeSet : public UBaseAttributeSet
 		FGameplayAttributeData DeadlyHeal;
 		BASEGAS_ATTRIBUTE_ACCESSORS(UPlayerAttributeSet, DeadlyHeal);
 
-    protected:
-        virtual void RecalculateTotalHP() override;
-        virtual void HandleEvaluatedData(const FGameplayEffectModCallbackData& Data, bool IsPostEffect) override;
-		virtual void PoiseBreak(const FGameplayEffectModCallbackData& Data) override;
+		UPROPERTY(BlueprintReadOnly, Category = "Special Stats")
+		FGameplayAttributeData ComboATKDMGUp;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UPlayerAttributeSet, ComboATKDMGUp);
+
+		UPROPERTY(BlueprintReadOnly, Category = "Special Stats")
+		FGameplayAttributeData HeavyATKDMGUp;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UPlayerAttributeSet, HeavyATKDMGUp);
+	
 };
 
 

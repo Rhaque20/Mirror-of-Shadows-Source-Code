@@ -3,20 +3,6 @@
 #include "Structs/ItemSpec.h"
 #include "GAS/UDGameplayTags.h"
 
-FItemSpec UItemBlueprintLibrary::GenerateArmor(FGameplayTag SetTag, FGameplayTag SlotTag, EGrade Rarity)
-{
-	FItemSpec Result = FItemSpec();
-	
-	// FArmorSlotandSet SlotAndSet = FArmorSlotandSet(SetTag,SlotTag);
-	// Result.AddFragment<FArmorSlotandSet>(SlotAndSet);
-	//
-	// FEquipmentMainStat MainStat = FEquipmentMainStat(TAG_Stats_Flat_ATK,12.0f,1);;
-	//
-	// Result.AddFragment<FEquipmentMainStat>(MainStat);
-	
-
-	return Result;
-}
 
 // FEquipmentMainStat UItemBlueprintLibrary::FindMainStatData(const FItemSpec& Spec, bool& bDidFind)
 // {

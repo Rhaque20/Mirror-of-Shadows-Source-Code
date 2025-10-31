@@ -119,6 +119,9 @@ protected:
 
 	FGameplayTag CurrentTicket = FGameplayTag::EmptyTag;
 
+	UPROPERTY(VisibleDefaultsOnly,BlueprintReadOnly)
+	TArray<FVector> FlyingPositions;
+
 
 public:	
 	// Called every frame
@@ -132,6 +135,8 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetSkillCooldown(UEnemySkill* SkillToCD);
+
+	void GiveFlyingPositions(TArray<FVector> FlyingPositions);
 
 };
 

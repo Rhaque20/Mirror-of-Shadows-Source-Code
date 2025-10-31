@@ -11,6 +11,8 @@
 
 #include "InventoryComponent.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRemoveArmor, FArmorData,RemovedArmor);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRemoveMaterial, FRPGMaterialData,RemovedMaterial);
 class URPGItem;
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent), Blueprintable)
 class MIRROROFSHADOWS_API UInventoryComponent : public UActorComponent
@@ -31,11 +33,11 @@ protected:
 	TArray<FItemSpec> Inventory;
 	// Used to index items and keep dupes in same spot
 	UPROPERTY(BlueprintReadOnly,EditDefaultsOnly)
-	TMap<FName, int> IndexedItemStorage;
+	TMap<FName,FItemSpec> IndexedItemStorage;
 
 	// Used to index gear, namely armor and weapons since easy differing factor will be GUID
 	UPROPERTY(BlueprintReadOnly,EditDefaultsOnly)
-	TMap<int,FArmorData> IndexedEquipmentStorage;
+	TMap<FGuid,FItemSpec> IndexedEquipmentStorage;
 
 public:	
 	// Called every frame
@@ -49,6 +51,21 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	FArmorData GetArmorData(FItemSpec ItemSpec);
+
+	UFUNCTION(BlueprintCallable)
+	bool RemoveArmor(FArmorData Armor);
+
+	UPROPERTY(BlueprintAssignable,BlueprintCallable)
+	FOnRemoveArmor OnRemoveArmor;
+
+	UPROPERTY(BlueprintAssignable,BlueprintCallable)
+	FOnRemoveMaterial OnRemoveMaterial;
+
+	UFUNCTION(BlueprintCallable)
+	bool IsInventoryFull() const
+	{
+		return Inventory.Num() > InventoryLimit;
+	}
 
 		
 };

@@ -1,3 +1,4 @@
+#include "HitScanShape.h"
 #include "ParryHitStruct.h"
 #include "SkillHitDataStruct.generated.h"
 #pragma once
@@ -33,6 +34,9 @@ struct FSkillHitData
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector HitBoxLocation = FVector(1, 1, 1);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FHitScanShape HitScanShapeData;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector HitBoxScale = FVector(1, 1, 1);

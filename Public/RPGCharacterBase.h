@@ -7,7 +7,6 @@
 #include "AbilitySystemInterface.h"
 #include "Interfaces/HitStopInterface.h"
 #include "Components/TimelineComponent.h"
-#include "Enumerator/AttackCategoryEnum.h"
 #include "GameplayTagContainer.h"
 
 #include "RPGCharacterBase.generated.h"
@@ -39,6 +38,9 @@ class MIRROROFSHADOWS_API ARPGCharacterBase : public ACharacter,public IAbilityS
         {
             return Level;
         }
+
+        UFUNCTION(BLueprintCallable)
+        bool IsDead() const;
 
         UFUNCTION(BlueprintCallable)
         bool IsImmobile() const;
@@ -164,6 +166,9 @@ class MIRROROFSHADOWS_API ARPGCharacterBase : public ACharacter,public IAbilityS
 
         UPROPERTY(BlueprintReadOnly)
         float OriginalMoveSpeed = 0.0f;
+
+        UPROPERTY(BlueprintReadOnly,EditDefaultsOnly)
+        float StunTime = 3.0f;
 
         UPROPERTY(BlueprintReadWrite,EditDefaultsOnly, Category = "Weapon Props",meta = (ToolTip = "Static Mesh Reference For First Weapon"))
         UStaticMeshComponent* WeaponProp1;

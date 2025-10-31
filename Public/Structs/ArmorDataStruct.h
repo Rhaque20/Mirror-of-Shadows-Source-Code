@@ -8,6 +8,9 @@ struct FArmorData : public FRPGItemData
 {
 	GENERATED_BODY()
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	FGuid ArmorGUID;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag EquipmentSlot;
 
@@ -33,4 +36,9 @@ struct FArmorData : public FRPGItemData
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	int Level;
+
+	bool operator==(const FArmorData& Other) const
+	{
+		return ArmorGUID == Other.ArmorGUID;
+	}
 };

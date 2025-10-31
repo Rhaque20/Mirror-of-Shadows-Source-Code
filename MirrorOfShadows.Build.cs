@@ -9,7 +9,7 @@ public class MirrorOfShadows : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" ,
-		"EnhancedInput","GameplayAbilities", "GameplayTags", "GameplayTasks","Paper2D","AIModule","AkAudio","WwiseSoundEngine"});
+		"EnhancedInput","GameplayAbilities", "GameplayTags", "GameplayTasks","Paper2D","AIModule","AkAudio","WwiseSoundEngine","Niagara","UMG"});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 

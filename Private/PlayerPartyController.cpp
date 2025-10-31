@@ -10,13 +10,15 @@
 #include "AbilitySystemComponent.h"
 #include "GAS/UDGameplayTags.h"
 #include "DataAsset/PlayerSkill.h"
+#include "DataAsset/UnisonSkill.h"
+#include "Enumerator/EffectTargetType.h"
 
 const int SWAPFAIL = -1;
 
 
 APlayerPartyController::APlayerPartyController()
 {
-    
+    AbilitySystem = CreateDefaultSubobject<UCustomAbilitySystemComponent>("AbilitySystem");
 }
 
 /// <summary>
@@ -36,6 +38,8 @@ void APlayerPartyController::SetUpMembers(TArray<APlayerCharacters*> PartyList)
         // and skill chain element.
         SummonedActorReferences[i]->GiveControllerRef(this);
         SummonedActorReferences[i]->SkillActivated.AddDynamic(this,&APlayerPartyController::GiveSPToOtherAllies);
+        SummonedActorReferences[i]->CharacterDied.AddDynamic(this,&APlayerPartyController::OnPlayerDeath);
+        bIsPlayerDead.Add(false);
     }
 }
 
@@ -73,7 +77,10 @@ void APlayerPartyController::IncreaseSkillChainLevel(EElement SkillElement = EEl
         SkillChainAdvance.Broadcast(SkillChainLevel, SkillElement);
     }
 
+    UnisonGaugeAmount += FMath::Clamp(UnisonGaugeAmount + (UnisonGaugeGainBase + (SkillChainLevel - 1)*UnisonGaugeGainPerLevel)
+        ,0.0f,UnisonGaugeMax);
     UE_LOG(LogTemp, Display, TEXT("Skill Chain Increased from %d to %d"),oldChain,SkillChainLevel);
+    OnUnisonGaugeChange.Broadcast(UnisonGaugeAmount/CurrentSkillCost,UnisonGaugeAmount/UnisonGaugeMax,SkillIcon);
     // The chain timer begins here.
     StartChainTimer();
 }
@@ -140,6 +147,25 @@ void APlayerPartyController::BeginPlay()
     {
         UE_LOG(LogTemp, Error, TEXT("Party Member not initialized or controller is null"));
     }
+
+    for (UUnisonSkill* Skill : UnisonSkills)
+    {
+        TSubclassOf<UGameplayAbility> AbilityClass = Skill->GetUnisonSkillAbility();
+        if (AbilityClass != nullptr)
+        {
+            AbilitySystem->GiveAbility(AbilityClass);
+        }
+        
+    }
+
+    if (UnisonSkills.Num() > 0)
+    {
+        CurrentUnisonSkill = 0;
+        CurrentSkillCost = UnisonSkills[CurrentUnisonSkill]->GetUnisonSkillCost();
+        SkillIcon = UnisonSkills[CurrentUnisonSkill]->GetSkillIcon();
+        OnUnisonGaugeChange.Broadcast(0.0f,0.0f,SkillIcon);
+    }
+        
     
 }
 
@@ -191,6 +217,14 @@ int APlayerPartyController::GetCharacterLeftIndex()
     int SwapToIndex = CurrentCharacterIndex - 1;
     if (SwapToIndex < 0) SwapToIndex = AliveMembersRemaining - 1;
 
+    if (bIsPlayerDead[SwapToIndex])
+    {
+        SwapToIndex = CurrentCharacterIndex - 1;
+        if (SwapToIndex < 0) SwapToIndex = AliveMembersRemaining - 1;
+        if (bIsPlayerDead[SwapToIndex] || SwapToIndex == CurrentCharacterIndex)
+            return SWAPFAIL;
+    }
+
     return SwapToIndex;
 }
 
@@ -215,7 +249,15 @@ int APlayerPartyController::GetCharacterRightIndex()
         UE_LOG(LogTemp, Display, TEXT("Party Member Array count is %d"), AliveMembersRemaining);
     }
 
-    return (CurrentCharacterIndex + 1) % SummonedActorReferences.Num();
+    int SwapToIndex = (CurrentCharacterIndex + 1) % SummonedActorReferences.Num();
+    if (bIsPlayerDead[SwapToIndex])
+    {
+        SwapToIndex = (CurrentCharacterIndex + 1) % SummonedActorReferences.Num();
+        if (bIsPlayerDead[SwapToIndex] || SwapToIndex == CurrentCharacterIndex)
+            return SWAPFAIL;
+    }
+
+    return SwapToIndex;
 }
 
 /// <summary>
@@ -268,6 +310,68 @@ void APlayerPartyController::ChainTimerUpdate()
         if (RemainingChainTime <= 0.0f)
         {
             EndChainTimer();
+        }
+    }
+}
+
+void APlayerPartyController::OnPlayerDeath(ARPGCharacterBase* PlayerCharacter)
+{
+    APlayerCharacters* PlayerRef = Cast<APlayerCharacters>(PlayerCharacter);
+    int i = SummonedActorReferences.Find(PlayerRef);
+    
+    if (i != -1 && ForceSwapImmunityEffect != nullptr)
+    {
+        bIsPlayerDead[i] = true;
+        SwitchResponse();
+        AliveMembersRemaining--;
+        if (ActiveCharacter == PlayerRef)
+        {
+            ActiveCharacter->SetActorHiddenInGame(true);
+            GameOver.Broadcast();
+        }
+        else
+        {
+            UAbilitySystemComponent* ActiveASC = ActiveCharacter->GetAbilitySystemComponent();
+            ActiveASC->BP_ApplyGameplayEffectToSelf(ForceSwapImmunityEffect,0,ActiveASC->MakeEffectContext());
+        }
+    }
+}
+
+void APlayerPartyController::ActivateUnisonSkill()
+{
+    if (CurrentUnisonSkill >= 0 && CurrentUnisonSkill < UnisonSkills.Num())
+    {
+        int i = CurrentUnisonSkill;;
+        float Cost = UnisonSkills[i]->GetUnisonSkillCost();
+
+        if (UnisonGaugeAmount >= Cost)
+        {
+            UnisonGaugeAmount -= Cost;
+            
+            if (UnisonGaugeAmount <= 0.0f)
+                UnisonGaugeAmount = 0.0f;
+            
+            OnUnisonGaugeChange.Broadcast(UnisonGaugeAmount/CurrentSkillCost,UnisonGaugeAmount/UnisonGaugeMax,SkillIcon);
+            TSubclassOf<UGameplayAbility> Ability = UnisonSkills[i]->GetUnisonSkillAbility();
+            if (Ability != nullptr)
+            {
+                AbilitySystem->TryActivateAbilityByClass(Ability);
+            }
+
+            TSubclassOf<UGameplayEffect> Effect = UnisonSkills[i]->GetUnisonSkillEffect();
+
+            if (Effect != nullptr)
+            {
+                EEffectTargetType Targetting = UnisonSkills[i]->GetEffectTargetType();
+                if (Targetting == EEffectTargetType::OnCaster)
+                {
+                    ActiveCharacter->GetAbilitySystemComponent()->BP_ApplyGameplayEffectToSelf(Effect,1,AbilitySystem->MakeEffectContext());
+                }
+                else if (Targetting == EEffectTargetType::OnTeam)
+                {
+                    ApplyGameplayEffectToAllAllies(AbilitySystem->MakeOutgoingSpec(Effect,1,AbilitySystem->MakeEffectContext()));
+                }
+            }
         }
     }
 }

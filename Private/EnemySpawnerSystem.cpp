@@ -2,15 +2,16 @@
 
 #pragma once
 
-#include "EnemyGrouperSystem.h"
+#include "EnemySpawnerSystem.h"
 #include "GAS/UDGameplayTags.h"
 #include "EnemyCharacterBase.h"
 #include "EnemyGroupBehaviorManager.h"
 #include "Systems/ItemChest.h"
+#include "Systems/InvisibleBarrierSystem.h"
 
 
 // Sets default values
-AEnemyGrouperSystem::AEnemyGrouperSystem()
+AEnemySpawnerSystem::AEnemySpawnerSystem()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -22,7 +23,7 @@ AEnemyGrouperSystem::AEnemyGrouperSystem()
 }
 
 // Called when the game starts or when spawned
-void AEnemyGrouperSystem::BeginPlay()
+void AEnemySpawnerSystem::BeginPlay()
 {
     GrouperSetup();
 
@@ -32,9 +33,25 @@ void AEnemyGrouperSystem::BeginPlay()
         ItemChests->LockChest();
     }
 
+    for (int i = 0; FlyingSpots.Num() > i; ++i)
+    {
+        FlyingSpots[i] += GetActorLocation();
+    }
+
     FActorSpawnParameters SpawnParams;
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
     GroupManager = GetWorld()->SpawnActor<AEnemyGroupBehaviorManager>(GroupBehaviorBPRef, GetActorLocation(), GetActorRotation(), SpawnParams);
+    
+    if (!InvisibleBarrierSystem && InvisibleBarrierClass != nullptr)
+    {
+        InvisibleBarrierSystem = GetWorld()->SpawnActor<AInvisibleBarrierSystem>(InvisibleBarrierClass, GetActorLocation(),GetActorRotation(),SpawnParams);
+    }
+
+    if (InvisibleBarrierSystem)
+    {
+        GroupManager->OnBattleBegin.AddDynamic(InvisibleBarrierSystem,&AInvisibleBarrierSystem::BarriersOn);
+        OnAllEnemiesDead.AddDynamic(InvisibleBarrierSystem,&AInvisibleBarrierSystem::BarriersOff);
+    }
 
     switch (spawningLevel)
     {
@@ -65,13 +82,13 @@ void AEnemyGrouperSystem::BeginPlay()
 }
 
 // Called every frame
-void AEnemyGrouperSystem::Tick(float DeltaTime)
+void AEnemySpawnerSystem::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 }
 
 /// @brief Test function set to spawn all enemies into the arena at once. Let batch size = num of enemy instances in the Unreal Editor for simplest tests
-void AEnemyGrouperSystem::SpawnAllEnemies()
+void AEnemySpawnerSystem::SpawnAllEnemies()
 {
     int32 numOfBatches = 1;
     if(batchSize >= enemyInstList.Num())
@@ -94,7 +111,7 @@ void AEnemyGrouperSystem::SpawnAllEnemies()
 /// @brief - Main function that spawns an enemy in a random location
 /// @param idx - The random spawn location chosen for each ordered enemy type.
 /// @return - Shows if the enemy was spawned or not.
-bool AEnemyGrouperSystem::SpawnEnemy(int32 idx)
+bool AEnemySpawnerSystem::SpawnEnemy(int32 idx)
 {
     if(RandomSpawnLocation() >= 0)
     {
@@ -114,7 +131,7 @@ bool AEnemyGrouperSystem::SpawnEnemy(int32 idx)
 }
 
 /// @brief Simple function that auto spawns the next batch of enemies at random choice of preset locations from your chosen enemy list
-void AEnemyGrouperSystem::SpawnEnemyBatch()
+void AEnemySpawnerSystem::SpawnEnemyBatch()
 {
     for(int32 j = 0; j < spawnLocations.Num() && (j + (batchSize * _batchItr)) < enemyInstList.Num(); ++j)
     {
@@ -127,7 +144,7 @@ void AEnemyGrouperSystem::SpawnEnemyBatch()
     ++_batchItr;
 }
 
-void AEnemyGrouperSystem::GrouperSetup()
+void AEnemySpawnerSystem::GrouperSetup()
 {
     enemyNames.Reserve(enemyInstList.Num());
     _usedSpawnLocals.Reserve(batchSize);
@@ -140,7 +157,7 @@ void AEnemyGrouperSystem::GrouperSetup()
 
 /// @brief Returns a random unused spawn location within this current batch. The value will also be added to the _usedSpawnLocals array if valid.
 /// @return spawnLocations index - use this return for verification purposes; -1 will be used for failed gens
-int32 AEnemyGrouperSystem::RandomSpawnLocation()
+int32 AEnemySpawnerSystem::RandomSpawnLocation()
 {
     int32 randNum = FMath::RandRange(0, batchSize-1);
     if (_usedSpawnLocals.Contains(randNum))
@@ -161,17 +178,17 @@ int32 AEnemyGrouperSystem::RandomSpawnLocation()
     else return -1;
 }
 
-bool AEnemyGrouperSystem::IsEnemyDead()
+bool AEnemySpawnerSystem::IsEnemyDead()
 {
     return enemyNames.Contains("") && _usedSpawnLocals.Contains(-1);
 }
 
-bool AEnemyGrouperSystem::IsEnemyBatchDead()
+bool AEnemySpawnerSystem::IsEnemyBatchDead()
 {
     return _enemyClassMap.IsEmpty();
 }
 
-void AEnemyGrouperSystem::HandleEnemyDeath(ARPGCharacterBase* charBase)
+void AEnemySpawnerSystem::HandleEnemyDeath(ARPGCharacterBase* charBase)
 {
     OnEnemyDeath(charBase);
     _enemyDeaths++;
@@ -213,11 +230,11 @@ void AEnemyGrouperSystem::HandleEnemyDeath(ARPGCharacterBase* charBase)
     if (_enemyDeaths == enemyInstList.Num())
     {
         UE_LOG(LogTemp, Display, TEXT("ALL ENEMIES ARE DEAD! Just dead."));
-        OnAllEnemiesDead.Broadcast();
+        OnAllEnemiesDead.Broadcast(this);
     }
 }
 
-void AEnemyGrouperSystem::OnEnemyDeath(ARPGCharacterBase* charBase)
+void AEnemySpawnerSystem::OnEnemyDeath(ARPGCharacterBase* charBase)
 {
     //UE5's safe version of casting: Cast<> - acts like this: charBase && charBase->IsA(AEnemyCharacterBase::StaticClass()) ? static_cast<AEnemyCharacterBase*>(charBase) : nullptr;
     AEnemyCharacterBase* dyingFoe = Cast<AEnemyCharacterBase>(charBase);
@@ -247,7 +264,7 @@ void AEnemyGrouperSystem::OnEnemyDeath(ARPGCharacterBase* charBase)
     }
 }
 
-AEnemyCharacterBase* AEnemyGrouperSystem::SpawnEnemyByIndex(int32 BatchIndex, const FVector& Location, const FRotator& Rotation)
+AEnemyCharacterBase* AEnemySpawnerSystem::SpawnEnemyByIndex(int32 BatchIndex, const FVector& Location, const FRotator& Rotation)
 {
     if(BatchIndex >= batchSize || !_usedSpawnLocals.IsValidIndex(BatchIndex))
     {
@@ -295,9 +312,11 @@ AEnemyCharacterBase* AEnemyGrouperSystem::SpawnEnemyByIndex(int32 BatchIndex, co
     {
         _enemyClassMap.Add(EnemyName, SpawnedEnemy);
         GroupManager->ReceiveEnemy(SpawnedEnemy);
-        SpawnedEnemy->CharacterDied.AddDynamic(this, &AEnemyGrouperSystem::HandleEnemyDeath);
+        SpawnedEnemy->CharacterDied.AddDynamic(this, &AEnemySpawnerSystem::HandleEnemyDeath);
         SpawnedEnemy->SpawnPortalIdx = BatchIndex;
         UE_LOG(LogTemp, Display, TEXT("Spawned Enemy: %s"), *EnemyName);
+        if (SpawnedEnemy->ActorHasTag("Flying"))
+            SpawnedEnemy->GiveFlyingPositions(FlyingSpots);
     }
 
     return SpawnedEnemy;

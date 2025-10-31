@@ -37,6 +37,14 @@ class MIRROROFSHADOWS_API UBaseAttributeSet : public UAttributeSet
 		UPROPERTY(BlueprintReadOnly, Category = "Total Health")
 		FGameplayAttributeData TotalHP;
 		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, TotalHP);
+		
+		UPROPERTY(BlueprintReadOnly, Category = "Total Attack")
+		FGameplayAttributeData TotalATK;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, TotalATK);
+		
+		UPROPERTY(BlueprintReadOnly, Category = "Total Attack")
+		FGameplayAttributeData TotalDEF;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, TotalDEF);
 
 		UPROPERTY(BlueprintReadOnly, Category = "Attack")
 		FGameplayAttributeData ATK;
@@ -47,12 +55,12 @@ class MIRROROFSHADOWS_API UBaseAttributeSet : public UAttributeSet
 		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, DEF);
 
 		UPROPERTY(BlueprintReadOnly, Category = "Potency")
-		FGameplayAttributeData POTENCY;
-		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, POTENCY);
+		FGameplayAttributeData Potency;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, Potency);
 
 		UPROPERTY(BlueprintReadOnly, Category = "Resistance")
-		FGameplayAttributeData RESISTANCE;
-		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, RESISTANCE);
+		FGameplayAttributeData Resistance;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, Resistance);
 
 		UPROPERTY(BlueprintReadOnly, Category = "Critical Rate")
 		FGameplayAttributeData CritRate;
@@ -65,6 +73,10 @@ class MIRROROFSHADOWS_API UBaseAttributeSet : public UAttributeSet
 		UPROPERTY(BlueprintReadOnly, Category = "Meta")
 		FGameplayAttributeData Damage;
 		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, Damage);
+
+		UPROPERTY(BlueprintReadOnly, Category = "Meta")
+		FGameplayAttributeData HealthRestored;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, HealthRestored);
 
 		UPROPERTY(BlueprintReadOnly, Category = "Meta")
 		FGameplayAttributeData PoiseDMG;
@@ -146,15 +158,28 @@ class MIRROROFSHADOWS_API UBaseAttributeSet : public UAttributeSet
 		FGameplayAttributeData Evasion;
 		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, Evasion);
 
+		UPROPERTY(BlueprintReadOnly, Category = "Special Stats")
+		FGameplayAttributeData HealBonus;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, HealBonus);
+
+		UPROPERTY(BlueprintReadOnly, Category = "Special Stats")
+		FGameplayAttributeData Tenacity;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, Tenacity);
+
 
 	public:
 		virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override;
+		virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
 	protected:
 		float HPRatio = 1.0f;
 		virtual void HandleEvaluatedData(const FGameplayEffectModCallbackData& Data, bool IsPostEffect);
-		virtual void PoiseBreak(const FGameplayEffectModCallbackData& Data);
 	protected:
 		UFUNCTION(BlueprintCallable)
 		virtual void RecalculateTotalHP();
+		UFUNCTION(BlueprintCallable)
+		virtual void RecalculateTotalATK();
+		UFUNCTION(BlueprintCallable)
+		virtual void RecalculateTotalDEF();
+	
 
 };

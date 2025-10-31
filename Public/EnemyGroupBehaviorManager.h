@@ -53,6 +53,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Enemy Ticket System")
 	TSubclassOf<class UGameplayEffect> RangeTicketEffect;
 
+	UPROPERTY(BlueprintReadOnly, VisibleDefaultsOnly, Category = "Enemy List")
 	// Map of enemies in the group with their respective scores.
 	TArray<AEnemyCharacterBase*> EnemiesInGroup;
 
@@ -105,5 +106,5 @@ public:
 
 	UFUNCTION()
 	void EnemyGroupLoop();
-
+	
 };

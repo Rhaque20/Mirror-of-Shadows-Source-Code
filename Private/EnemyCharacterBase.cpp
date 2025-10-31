@@ -279,6 +279,11 @@ void AEnemyCharacterBase::SetSkillCooldown(UEnemySkill* SkillToCD)
 	SkillCooldownManager->SetSkillCooldown(SkillToCD);
 }
 
+void AEnemyCharacterBase::GiveFlyingPositions(TArray<FVector> FlyingPos)
+{
+	FlyingPositions = FlyingPos;
+}
+
 void AEnemyCharacterBase::Recover() 
 {
 	IsAttacking = false;

@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "GAS/GEC_AttackScale.h"
+#include "GAS/GameplayEffectCalculation/GEC_AttackScale.h"
 #include "GAS/BaseAttributeSet.h"
 #include "AbilitySystemComponent.h"
 #include "Math/UnrealMathUtility.h"
@@ -11,10 +11,9 @@
 
 struct FDamageStatics
 {
-    DECLARE_ATTRIBUTE_CAPTUREDEF(DEF);
-    DECLARE_ATTRIBUTE_CAPTUREDEF(ATK);
+    DECLARE_ATTRIBUTE_CAPTUREDEF(TotalDEF);
     DECLARE_ATTRIBUTE_CAPTUREDEF(HP);
-    DECLARE_ATTRIBUTE_CAPTUREDEF(ATKBonusPercent);
+    DECLARE_ATTRIBUTE_CAPTUREDEF(TotalATK);
     DECLARE_ATTRIBUTE_CAPTUREDEF(SkillModifier);
     DECLARE_ATTRIBUTE_CAPTUREDEF(DMGRes);
     DECLARE_ATTRIBUTE_CAPTUREDEF(BlockPower);
@@ -27,15 +26,14 @@ struct FDamageStatics
     FDamageStatics()
     {
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,HP, Source,false);
-        DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,ATK, Source,false);
+        DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,TotalATK, Source,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,CritRate, Source,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,CritDMG, Source,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,SkillModifier, Source,true);
-        DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,ATKBonusPercent,Source,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,DMGRes,Target,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,BlockPower,Target,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,Damage, Target,false);
-        DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,DEF, Target,false);
+        DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,TotalDEF, Target,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet, ElementDMGBoost, Source, false);
         // We want to snapshot the value at the time this effect got calculated
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet, HitResultModifier, Source, true);
@@ -50,14 +48,13 @@ static const FDamageStatics DamageStatics()
 
 UGEC_AttackScale::UGEC_AttackScale() 
 {
-	RelevantAttributesToCapture.Add(DamageStatics().DEFDef);
-    RelevantAttributesToCapture.Add(DamageStatics().ATKDef);
+	RelevantAttributesToCapture.Add(DamageStatics().TotalDEFDef);
+    RelevantAttributesToCapture.Add(DamageStatics().TotalATKDef);
     RelevantAttributesToCapture.Add(DamageStatics().HPDef);
     RelevantAttributesToCapture.Add(DamageStatics().DamageDef);
     RelevantAttributesToCapture.Add(DamageStatics().SkillModifierDef);
     RelevantAttributesToCapture.Add(DamageStatics().DMGResDef);
     RelevantAttributesToCapture.Add(DamageStatics().BlockPowerDef);
-    RelevantAttributesToCapture.Add(DamageStatics().ATKBonusPercentDef);
     RelevantAttributesToCapture.Add(DamageStatics().CritRateDef);
     RelevantAttributesToCapture.Add(DamageStatics().CritDMGDef);
     RelevantAttributesToCapture.Add(DamageStatics().ElementDMGBoostDef);
@@ -107,16 +104,14 @@ void UGEC_AttackScale::Execute_Implementation(const FGameplayEffectCustomExecuti
     float FinalAttack = 0.0f;
     float FinalDefense = 0.0f;
     float FinalDamage = 0.0f;
-    float ATKBonusPercent = 0.0f;
     float FinalDMGRes = 0.0f;
     float BlockPower = 0.0f;
     float CriticalChance = 0.05f;
     float CriticalDMG = 0.0f;
     int DidHit = (int)HitResultModifier;// -1 = Missed, 0 = Hit, 1 = Critical Hit
 
-    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().ATKDef, EvaluationParameters, FinalAttack);
-    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().ATKBonusPercentDef, EvaluationParameters, ATKBonusPercent);
-    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().DEFDef, EvaluationParameters, FinalDefense);
+    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().TotalATKDef, EvaluationParameters, FinalAttack);
+    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().TotalDEFDef, EvaluationParameters, FinalDefense);
     ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().DMGResDef, EvaluationParameters, FinalDMGRes);
     ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CritRateDef, EvaluationParameters, CriticalChance);
 
@@ -127,7 +122,7 @@ void UGEC_AttackScale::Execute_Implementation(const FGameplayEffectCustomExecuti
 
     if (DidHit >= 0)
     {
-        if (FMath::RandRange(1.0f, 100.0f) <= CriticalChance)
+        if (FMath::RandRange(0.0f,1.0f) <= CriticalChance)
         {
             UE_LOG(LogTemp, Display, TEXT("CRITICAL HIT!"));
             ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CritDMGDef, EvaluationParameters, CriticalDMG);
@@ -139,8 +134,6 @@ void UGEC_AttackScale::Execute_Implementation(const FGameplayEffectCustomExecuti
     FinalDMGRes = FMath::Clamp(FinalDMGRes,-1.0f,0.75f);
 
     UE_LOG(LogTemp, Display, TEXT("Attacker's Attack: %f and Defender's Defense: %f"),FinalAttack,FinalDefense);
-
-    FinalAttack *= (1 + ATKBonusPercent);
 
     UE_LOG(LogTemp, Display, TEXT("Attacker's Attack with ATK Bonus: %f"),FinalAttack);
 

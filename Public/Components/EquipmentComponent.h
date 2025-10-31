@@ -15,7 +15,7 @@ class MIRROROFSHADOWS_API UEquipmentComponent : public UActorComponent,public IG
 {
     GENERATED_BODY()
     protected:
-        UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Equipment")
+        UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Equipment")
 	    TArray<class UArmor*> EquippedGear;
 
         UPROPERTY(BlueprintReadWrite, Category = "Gameplay Tag")
@@ -25,19 +25,7 @@ class MIRROROFSHADOWS_API UEquipmentComponent : public UActorComponent,public IG
         TMap<FGameplayTag, FArmorData> EquippedArmor;
 
         UPROPERTY(BlueprintReadOnly,EditDefaultsOnly,Category = "EquipmentEffect")
-        TSubclassOf<class UGameplayEffect> HelmetEffect;
-
-        UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "EquipmentEffect")
-        TSubclassOf<class UGameplayEffect> ChestPlateEffect;
-
-        UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "EquipmentEffect")
-        TSubclassOf<class UGameplayEffect> BracerEffect;
-
-        UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "EquipmentEffect")
-        TSubclassOf<class UGameplayEffect> NecklaceEffect;
-
-        UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "EquipmentEffect")
-        TSubclassOf<class UGameplayEffect> RingEffect;
+        TSubclassOf<class UGameplayEffect> ArmorEffect;
 
         UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "EquipmentEffect")
         TSubclassOf<class UGameplayEffect> RingElementalEffect;

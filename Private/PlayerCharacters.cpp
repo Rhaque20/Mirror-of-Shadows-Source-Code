@@ -229,6 +229,11 @@ bool APlayerCharacters::SkillAttackBySkill(UPlayerSkill* SkillRef)
 
 bool APlayerCharacters::SummonAttack(AActor* Target, bool bUseGroundSkill)
 {
+	if (IsDead())
+	{
+		return false;
+	}
+	
 	bool SuccessfulAttack = false;
 	ARPGCharacterBase* targetChar;
 

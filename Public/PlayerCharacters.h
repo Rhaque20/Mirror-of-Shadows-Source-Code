@@ -8,6 +8,7 @@
 #include "AbilitySystemInterface.h"
 #include "RPGCharacterBase.h"
 #include "EnumLib.h"
+#include "GAS/CustomAbilitySystemComponent.h"
 
 #include "PlayerCharacters.generated.h"
 
