@@ -6,7 +6,7 @@
 #include "CheckPoint.h"
 #include "GameFramework/Actor.h"
 #include "CheckPointSystem.generated.h"
-
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCheckpointUpdate, FVector, CheckpointLocation);
 UCLASS()
 class MIRROROFSHADOWS_API ACheckPointSystem : public AActor
 {
@@ -22,15 +22,14 @@ public:
     UPROPERTY(VisibleAnywhere, Category = "Player Position")
     uint32 P1ChkPnt;
 
+	UPROPERTY(BlueprintAssignable, Category = "Player Position")
+	FOnCheckpointUpdate OnCheckpointUpdate;
+
     UFUNCTION()
     void UpdatePlayerPosition(ACheckPoint* activePoint);
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
 
 };

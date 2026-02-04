@@ -3,7 +3,7 @@
 
 #include "Systems/ItemChest.h"
 
-#include "EnemySpawnerSystem.h"
+#include "Systems/EnemySpawnerSystem.h"
 #include "NiagaraComponent.h"
 #include "Structs/ItemSpec.h"
 
@@ -11,7 +11,7 @@
 AItemChest::AItemChest()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	TestComp = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComponent"));
 	TestComp->SetupAttachment(RootComponent);
 	LockedVFX = CreateDefaultSubobject<UNiagaraComponent>("LockedVFX");

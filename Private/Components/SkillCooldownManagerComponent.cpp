@@ -9,7 +9,7 @@ USkillCooldownManagerComponent::USkillCooldownManagerComponent()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 
 	// ...
 }
@@ -24,15 +24,6 @@ void USkillCooldownManagerComponent::BeginPlay()
 	
 }
 
-
-// Called every frame
-void USkillCooldownManagerComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// ...
-}
-
 void USkillCooldownManagerComponent::SetUpSkillCooldowns(TArray<UEnemySkill*> Skills)
 {
 	SkillCooldowns = TMap<UEnemySkill*, float>();
@@ -43,12 +34,12 @@ void USkillCooldownManagerComponent::SetUpSkillCooldowns(TArray<UEnemySkill*> Sk
 		SkillCooldowns.Add(skillData, startCD);
 	}
 
-	GetWorld()->GetTimerManager().SetTimer
+	/*GetWorld()->GetTimerManager().SetTimer
 	(CooldownTimer, 
 		this, 
 		&USkillCooldownManagerComponent::SkillCooldownTick, 
 		0.5f, 
-		true);
+		true);*/
 
 	SkillsOwned = Skills;
 }
@@ -75,6 +66,15 @@ void USkillCooldownManagerComponent::SkillCooldownTick()
 	{
 		if(SkillCooldowns[skill] > 0.0f)
 			SkillCooldowns[skill] -= 0.5f;
+	}
+}
+
+void USkillCooldownManagerComponent::AggregateTick(float DeltaTime)
+{
+	for (UEnemySkill* skill : SkillsOwned)
+	{
+		if(SkillCooldowns[skill] > 0.0f)
+			SkillCooldowns[skill] -= DeltaTime;
 	}
 }
 

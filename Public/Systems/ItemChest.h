@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "InteractableActor.h"
+#include "Enumerator/ItemCategoryEnum.h"
 #include "GameFramework/Actor.h"
 #include "Structs/ArmorDataStruct.h"
 #include "Interfaces/InteractableInterface.h"
@@ -12,7 +14,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnChestOpen,AItemChest*, OpenedChest);
 UCLASS()
-class MIRROROFSHADOWS_API AItemChest : public AActor, public IInteractableInterface
+class MIRROROFSHADOWS_API AItemChest : public AInteractableActor
 {
 	GENERATED_BODY()
 	
@@ -40,6 +42,13 @@ public:
 public:
 	UPROPERTY(BlueprintCallable)
 	FOnChestOpen OnChestOpen;
+	
+	UPROPERTY(BlueprintReadOnly,EditInstanceOnly, Category = "Strongbox Reward", meta = (EditCondition = "InteractiveType == EInteractiveType::OneTime",EditConditionHides))
+	EItemCategory StrongBoxRewardCategory;
+	
+	UPROPERTY(BlueprintReadOnly,EditInstanceOnly,Category = "Strongbox Reward",meta = (EditCondition = "InteractiveType == EInteractiveType::OneTime && StrongBoxRewardCategory == EItemCategory::CraftingRecipe",EditConditionHides))
+	FGameplayTag RecipeTag;
+	
 
 protected:
 

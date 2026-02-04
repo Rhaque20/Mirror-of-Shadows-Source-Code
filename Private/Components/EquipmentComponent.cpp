@@ -1,9 +1,11 @@
+
 #include "Components/EquipmentComponent.h"
 #include <GameplayEffect.h>
 #include "GAS/UDGameplayTags.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "Structs/EquipmentStatStruct.h"
 
 void UEquipmentComponent::BeginPlay()
 {
@@ -27,9 +29,14 @@ void UEquipmentComponent::BeginPlay()
     }
 }
 
+UEquipmentComponent::UEquipmentComponent()
+{
+    PrimaryComponentTick.bCanEverTick = false;
+}
+
 void UEquipmentComponent::CheckSetBonus()
 {
-    
+
 }
 
 void UEquipmentComponent::TurnArmorIntoStats(FArmorData ArmorEquipped)
@@ -41,18 +48,44 @@ void UEquipmentComponent::TurnArmorIntoStats(FArmorData ArmorEquipped)
         UE_LOG(LogTemp, Error, TEXT("No effect for an equipment effect"));
         return;
     }
+    
+    FGameplayEffectSpecHandle ElementSpecHandle = nullptr;
+    if (ArmorEquipped.MainStat.MatchesTag(TAG_Damage_Health))
+    {
+        TSubclassOf<UGameplayEffect> ElementEffectClass = nullptr;
         
-    FGameplayEffectSpecHandle SpecHandle = OwningASC->MakeOutgoingSpec(ArmorEffect,0, OwningASC->MakeEffectContext());
+        if(ArmorEquipped.MainStat == TAG_Damage_Health_Fire)
+            ElementEffectClass = FireRingEffect;
+        else if(ArmorEquipped.MainStat == TAG_Damage_Health_Wind)
+            ElementEffectClass = WindRingEffect;
+        else if(ArmorEquipped.MainStat == TAG_Damage_Health_Earth)
+            ElementEffectClass = EarthRingEffect;
+        else if(ArmorEquipped.MainStat == TAG_Damage_Health_Water)
+            ElementEffectClass = WaterRingEffect;
+        else if(ArmorEquipped.MainStat == TAG_Damage_Health_Light)
+            ElementEffectClass = LightRingEffect;
+        else if(ArmorEquipped.MainStat == TAG_Damage_Health_Dark)
+            ElementEffectClass = DarkRingEffect;
 
-    TMap<FGameplayTag, float> AccumulatedStats = TMap<FGameplayTag,float>();
+        if (ElementEffectClass != nullptr)
+        {
+            ElementSpecHandle = OwningASC->MakeOutgoingSpec(ElementEffectClass, 0, OwningASC->MakeEffectContext());
+            UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(ElementSpecHandle, TAG_Damage_Health, ArmorEquipped.MainStatValue);
+        }
+    }
+
+    FGameplayEffectSpecHandle SpecHandle = OwningASC->MakeOutgoingSpec(ArmorEffect, 0, OwningASC->MakeEffectContext());
+
+    TMap<FGameplayTag, float> AccumulatedStats = TMap<FGameplayTag, float>();
+
     
     AccumulatedStats.Add(ArmorEquipped.MainStat, ArmorEquipped.MainStatValue);
 
-    for(TMap<FGameplayTag,float>::TRangedForIterator Itr = ArmorEquipped.Substats.begin(); Itr != ArmorEquipped.Substats.end(); ++Itr)
+    for (TSet<FEquipmentStat>::TRangedForIterator Itr = ArmorEquipped.Substats.begin(); Itr != ArmorEquipped.Substats.end(); ++Itr)
     {
-        FGameplayTag statTag = Itr->Key;
-        float statValue = Itr->Value;
-        float *accumulatedValue = AccumulatedStats.Find(statTag);
+        FGameplayTag statTag = Itr->StatTag;
+        float statValue = Itr->StatValue;
+        float* accumulatedValue = AccumulatedStats.Find(statTag);
 
         if (accumulatedValue != nullptr)
         {
@@ -74,7 +107,7 @@ void UEquipmentComponent::TurnArmorIntoStats(FArmorData ArmorEquipped)
     {
         UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, Itr2->Key, Itr2->Value);
         i++;
-        if (i == 4)
+        if (i == 5)
         {
             UE_LOG(LogTemp, Error, TEXT("Infinite loop detected!"));
             break;
@@ -85,12 +118,18 @@ void UEquipmentComponent::TurnArmorIntoStats(FArmorData ArmorEquipped)
         UE_LOG(LogTemp, Error, TEXT("Valid spec"));
 
     SpecHandle.Data->DynamicGrantedTags.AddTag(SlotTag);
-    
+
     OwningASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data);
+    
+    if (ElementSpecHandle.IsValid())
+    {
+        ElementSpecHandle.Data->DynamicGrantedTags.AddTag(SlotTag);
+        OwningASC->ApplyGameplayEffectSpecToSelf(*ElementSpecHandle.Data);
+    }
 
 }
 
-bool UEquipmentComponent::EquipArmorInSlot(FArmorData ArmorToWear,FArmorData& OccupiedArmor)
+bool UEquipmentComponent::EquipArmorInSlot(FArmorData ArmorToWear, FArmorData& OccupiedArmor)
 {
     FGameplayTag SlotToSwap = ArmorToWear.EquipmentSlot;
 
@@ -111,10 +150,11 @@ FArmorData UEquipmentComponent::UnEquipArmor(FGameplayTag SlotToUnequip)
 
     if (UnequippedArmor != nullptr)
     {
-        EquippedArmor.Remove(SlotToUnequip);
+        FArmorData Test = FArmorData(*UnequippedArmor);
+        EquippedArmor.RemoveAndCopyValue(SlotToUnequip,Test);
         OwningASC->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(SlotToUnequip));
 
-        return *UnequippedArmor;
+        return Test;
     }
 
     return FArmorData();
@@ -123,4 +163,22 @@ FArmorData UEquipmentComponent::UnEquipArmor(FGameplayTag SlotToUnequip)
 FArmorData UEquipmentComponent::GetArmorDataFromSlot(FGameplayTag EquipmentSlot) const
 {
     return EquippedArmor.Find(EquipmentSlot) ? EquippedArmor[EquipmentSlot] : FArmorData();
+}
+
+FEquipmentToSave UEquipmentComponent::GetSaveData() const
+{
+    FEquipmentToSave SaveData;
+    SaveData.SavedEquippedArmor = EquippedArmor;
+
+    return SaveData;
+}
+
+void UEquipmentComponent::LoadFromSaveData(FEquipmentToSave& SaveData)
+{
+    EquippedArmor = SaveData.SavedEquippedArmor;
+
+    for (const auto& ArmorPair : EquippedArmor)
+    {
+        TurnArmorIntoStats(ArmorPair.Value);
+    }
 }

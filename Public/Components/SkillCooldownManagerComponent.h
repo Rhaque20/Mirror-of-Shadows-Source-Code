@@ -4,11 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Interfaces/AggregateTickInterface.h"
 #include "SkillCooldownManagerComponent.generated.h"
 
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class MIRROROFSHADOWS_API USkillCooldownManagerComponent : public UActorComponent
+class MIRROROFSHADOWS_API USkillCooldownManagerComponent : public UActorComponent, public IAggregateTickInterface
 {
 	GENERATED_BODY()
 
@@ -29,9 +30,6 @@ protected:
 	TArray<UEnemySkill*> SkillsOwned;
 
 public:	
-	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
 	void SetUpSkillCooldowns(TArray<UEnemySkill*> Skills);
 
 	UFUNCTION(BlueprintCallable)
@@ -42,5 +40,7 @@ public:
 
 	UFUNCTION()
 	void SkillCooldownTick();
-		
+
+	UFUNCTION()
+	void AggregateTick(float DeltaTime) override;
 };

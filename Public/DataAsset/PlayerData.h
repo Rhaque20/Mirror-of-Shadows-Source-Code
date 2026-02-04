@@ -24,4 +24,6 @@ class MIRROROFSHADOWS_API UPlayerData : public UEntityData
 		class UPaperSprite* PlayerIcon;
 		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Player Icon")
 		FVector2D IconPosition;
+		UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
+		TSubclassOf<UUserWidget> SkillTreeWidget;
 };

@@ -67,6 +67,19 @@ void UPlayerCore::SetSkillRef(int index)
     CurrentChain = index;
 }
 
+void UPlayerCore::GiveNewSkill(UPlayerSkill* NewSkill)
+{
+    ESkillHeight SkillHeight = NewSkill->GetSkillHeightRequirement();
+    if (SkillHeight == ESkillHeight::Grounded || SkillHeight == ESkillHeight::GroundorAir)
+    {
+        GroundSkills.Add(NewSkill);
+    }
+    else
+    {
+        AirSkills.Add(NewSkill);
+    }
+}
+
 void UPlayerCore::FillAllSkillEnergy(float EnergyAmount)
 {
     int n = GroundSkills.Num();

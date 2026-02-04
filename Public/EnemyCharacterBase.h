@@ -5,13 +5,18 @@
 #include "CoreMinimal.h"
 #include "RPGCharacterBase.h"
 #include "AbilitySystemInterface.h"
+#include "ActiveGameplayEffectHandle.h"
 
 #include "EnemyCharacterBase.generated.h"
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(bool, FGetTicketDelegate, AEnemyCharacterBase*, Requester, FGameplayTag, TicketToRequest);
+class UEnemySkill;
+DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(bool, FGetTicketDelegate, AEnemyCharacterBase*, Requester, FGameplayTag,
+                                          TicketToRequest);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FReturnTicketDelegate, AEnemyCharacterBase*, Returner, FGameplayTag, TicketToReturn);
 DECLARE_DELEGATE_TwoParams(FReturnTicketFunction, AEnemyCharacterBase*, FGameplayTag);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDetectedPlayer,AActor*, DetectedActor);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAggregatedTick,float, DeltaTime);
 
 class UStaggerComponent;
 
@@ -30,15 +35,15 @@ public:
 	float GetHealth() const;
 	UFUNCTION(BlueprintCallable)
 	float GetCurrentHealth() const;
+	
+	UFUNCTION(BlueprintCallable)
+	UEnemySkill* GetDecidedSkill() const;
 
 	UFUNCTION(BlueprintCallable)
 	void DetectionFill();
 
 	UFUNCTION(BlueprintCallable)
 	void GetConditionParameters(AActor *TargetActor, float& Distance, float& Angle, float& Height) const;
-
-	UFUNCTION(BlueprintCallable,BlueprintImplementableEvent)
-	void SelectAttack(float Distance, float Angle, float Height, bool& Selected);
 
 	virtual void AutoTarget();
 
@@ -54,11 +59,13 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ReturnTicket();
 
-	UFUNCTION()
-	void UseSkill(UEnemySkill* Skill);
+	UFUNCTION(BlueprintCallable)
+	bool UseSkill();
 
 	UFUNCTION()
 	void PreparingForAttack();
+	
+	void StartDecision();
 
 	UFUNCTION()
 	void OnAttackDelayStatusChange(FGameplayTag DelayTag,struct FActiveGameplayEffectHandle EffectHandle, int32 NewStackCount, int32 PreviousStackCount);
@@ -83,6 +90,9 @@ public:
 
 	UPROPERTY(BlueprintReadOnly,BlueprintCallable)
 	FOnDetectedPlayer OnDetectedPlayer;
+	
+	UPROPERTY(BlueprintReadOnly,BlueprintAssignable)
+	FOnAggregatedTick OnAggregatedTick;
 
 
 
@@ -108,10 +118,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadWrite)
 	AActor* AttackTarget;
 
+	UPROPERTY()
 	class USkillCooldownManagerComponent* SkillCooldownManager;
-
+	
+	UPROPERTY()
 	class UAsyncTaskEffectStackChanged* AttackDelayListener;
-
+	
+	UPROPERTY(BlueprintReadWrite)
+	class UAbilityAsync* HitEventWaiter;
+	
+	UPROPERTY()
 	FTimerHandle DecisionTimerHandle;
 
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
@@ -122,10 +138,32 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly,BlueprintReadOnly)
 	TArray<FVector> FlyingPositions;
 
+	UPROPERTY(BlueprintReadOnly,EditAnywhere)
+	class UEntityRewardComponent* RewardComponent;
+	
+	UPROPERTY(BlueprintReadOnly,EditDefaultsOnly)
+	bool bCanUseRanged = false;
+	
+	UPROPERTY()
+	bool bCanDecide = true;
+	
+	UPROPERTY()
+	UEnemySkill* SkillToUse;
+	
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<UGameplayEffect> UnawareEffectClass;
+	
+	UPROPERTY(BlueprintReadOnly,EditDefaultsOnly)
+	bool bStartUnaware = true;
+	
+	UPROPERTY()
+	FActiveGameplayEffectHandle UnawareEffect;
+	
+	UPROPERTY()
+	TArray<class UActorComponent*> AggregateComponents;
+
 
 public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -137,6 +175,9 @@ public:
 	void SetSkillCooldown(UEnemySkill* SkillToCD);
 
 	void GiveFlyingPositions(TArray<FVector> FlyingPositions);
+	
+	UFUNCTION()
+	void GroupEnemyTick(float DeltaTime);
 
 };
 

@@ -1,0 +1,11 @@
+﻿#pragma once
+
+#include "NativeGameplayTags.h"
+
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Item_Crafting_SilverBones)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Item_Crafting_MonsterDrop_BeastFang)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(Tag_Item_Crafting_MonsterDrop_HellClawScythe)
+
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Item_Recipe)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Item_Recipe_Weapon_Dagger_HunterDagger)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Item_Recipe_Weapon_Dagger_HunterStriker)

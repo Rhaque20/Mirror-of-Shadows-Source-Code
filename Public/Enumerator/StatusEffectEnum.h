@@ -11,7 +11,7 @@ enum class EStatusEffect : uint8
     Burn UMETA(DisplayName = "Burn"),
     Silence UMETA(DisplayName = "Silence"),
     Slow UMETA(DisplayName = "Slow"),
-    Poison UMETA(DisplayName = "Poison"),
-    Paralyze UMETA(DisplayName= "Paralyze"),
-    Blind UMETA(DisplayName ="Blind")
+    Freeze UMETA(DisplayName = "Freeze"),
+    Shock UMETA(DisplayName= "Shock"),
+    Curse UMETA(DisplayName ="Curse")
 };

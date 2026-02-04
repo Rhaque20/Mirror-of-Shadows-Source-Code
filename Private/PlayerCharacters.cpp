@@ -27,6 +27,8 @@
 #include "Components/TimelineComponent.h"
 #include "GAS/CharacterGameplayAbility.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "Components/CharacterGrowthComponent.h"
+#include "DataAsset/SkillTreeNodeData.h"
 #include "GAS/UDGameplayTags.h"
 
 #define BufferTag "Event.Melee.Continue"
@@ -34,504 +36,513 @@
 // Sets default values
 APlayerCharacters::APlayerCharacters()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
-	SpringArm->SetupAttachment(RootComponent);
-	SpringArm->bUsePawnControlRotation = true;
+    // Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+    PrimaryActorTick.bCanEverTick = true;
+    SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
+    SpringArm->SetupAttachment(RootComponent);
+    SpringArm->bUsePawnControlRotation = true;
 
-	Camera = CreateDefaultSubobject<UCameraComponent>("Camera");
-	Camera->SetupAttachment(SpringArm);
+    Camera = CreateDefaultSubobject<UCameraComponent>("Camera");
+    Camera->SetupAttachment(SpringArm);
 
-	AbilitySystem = CreateDefaultSubobject<UCustomAbilitySystemComponent>("AbilitySystem");
-	AttributeSet = CreateDefaultSubobject<UPlayerAttributeSet>("PlayerAttributeSet");
-	PlayerAttributes = Cast<UPlayerAttributeSet>(AttributeSet);
+    AbilitySystem = CreateDefaultSubobject<UCustomAbilitySystemComponent>("AbilitySystem");
+    AttributeSet = CreateDefaultSubobject<UPlayerAttributeSet>("PlayerAttributeSet");
+    PlayerAttributes = Cast<UPlayerAttributeSet>(AttributeSet);
 
-	CharacterCore = CreateDefaultSubobject<UPlayerCore>(TEXT("PlayerCore"));
-	EquipmentComponent = CreateDefaultSubobject<UEquipmentComponent>(TEXT("Equipment Component"));
-	// StaggerComponent = CreateDefaultSubobject<UStaggerComponent>(TEXT("Stagger Component"));
+    CharacterCore = CreateDefaultSubobject<UPlayerCore>(TEXT("PlayerCore"));
+    EquipmentComponent = CreateDefaultSubobject<UEquipmentComponent>(TEXT("Equipment Component"));
+    GrowthComponent = CreateDefaultSubobject<UCharacterGrowthComponent>(TEXT("Growth Component"));
 
-	GravityOrb = CreateDefaultSubobject<USceneComponent>(TEXT("Gravity Orb"));
-	GravityOrb->SetupAttachment(RootComponent);
+    GravityOrb = CreateDefaultSubobject<USceneComponent>(TEXT("Gravity Orb"));
+    GravityOrb->SetupAttachment(RootComponent);
 
-	// bUseControllerRotationYaw = false;
-	GetCharacterMovement()->bOrientRotationToMovement = true;
+    // bUseControllerRotationYaw = false;
+    GetCharacterMovement()->bOrientRotationToMovement = true;
 
 }
 
 float APlayerCharacters::GetHealth() const
 {
-	if (AttributeSet)
-	{
-		return AttributeSet->GetHP();
-	}
+    if (AttributeSet)
+    {
+        return AttributeSet->GetHP();
+    }
 
-	return 0.0f;
+    return 0.0f;
 }
 
 float APlayerCharacters::GetCurrentHealth() const
 {
-	if (AttributeSet)
-	{
-		return AttributeSet->GetCurrentHP();
-	}
+    if (AttributeSet)
+    {
+        return AttributeSet->GetCurrentHP();
+    }
 
-	return 0.0f;
+    return 0.0f;
 }
 
-void APlayerCharacters::SetUpLockOn(bool LockOnToggle, AActor* Target) 
+void APlayerCharacters::SetUpLockOn(bool LockOnToggle, AActor* Target)
 {
-	HasLockOn = LockOnToggle;
-	LockOnTarget = Target;
+    HasLockOn = LockOnToggle;
+    LockOnTarget = Target;
 }
 
 void APlayerCharacters::AutoTarget()
 {
-	AActor* TargetRef = nullptr;
-	if (HasLockOn)
-	{
-		TargetRef = LockOnTarget;
-	}
-	else if (IsValid(CounterTarget))
-	{
-		TargetRef = CounterTarget;
-	}
+    AActor* TargetRef = nullptr;
+    if (HasLockOn)
+    {
+        TargetRef = LockOnTarget;
+    }
+    else if (IsValid(CounterTarget))
+    {
+        TargetRef = CounterTarget;
+    }
 
-	if(IsValid(TargetRef))
-		AutoTarget_Set(TargetRef);
-	else
-	{
-		SetRotationByInput();
-	}
+    if (IsValid(TargetRef))
+        AutoTarget_Set(TargetRef);
+    else
+    {
+        SetRotationByInput();
+    }
 
-	
+
 }
 
 void APlayerCharacters::AutoTarget_Set(AActor* Target)
 {
-	if (IsValid(Target))
-	{
-		UE_LOG(LogTemp, Display, TEXT("Lock on is valid as target is %s"),*(Target->GetName()));
-		FRotator PlayerRot = GetActorRotation();
-		FRotator LookAtRot = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), Target->GetActorLocation());
-		SetActorRotation(UKismetMathLibrary::MakeRotator(PlayerRot.Roll, PlayerRot.Pitch, LookAtRot.Yaw));
-	}
+    if (IsValid(Target))
+    {
+        UE_LOG(LogTemp, Display, TEXT("Lock on is valid as target is %s"), *(Target->GetName()));
+        FRotator PlayerRot = GetActorRotation();
+        FRotator LookAtRot = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), Target->GetActorLocation());
+        SetActorRotation(UKismetMathLibrary::MakeRotator(PlayerRot.Roll, PlayerRot.Pitch, LookAtRot.Yaw));
+    }
 }
 
 FRotator APlayerCharacters::GetRotationByInput() const
 {
-	if (!CanUseLastMoveInput || !IsValid(Controller))
-	{
-		return GetActorRotation();
-	}
-	
-	FRotator Rotation = Controller->GetControlRotation();
-	FVector ForwardDirection = UKismetMathLibrary::GetForwardVector(Rotation);
-	FVector RightDirection = UKismetMathLibrary::GetRightVector(Rotation);
+    if (!CanUseLastMoveInput || !IsValid(Controller))
+    {
+        return GetActorRotation();
+    }
 
-	FRotator FinalRotation = UKismetMathLibrary::FindLookAtRotation(ForwardDirection * LastMoveInput.Y * -1.0f,RightDirection* LastMoveInput.X);
+    FRotator Rotation = Controller->GetControlRotation();
+    FVector ForwardDirection = UKismetMathLibrary::GetForwardVector(Rotation);
+    FVector RightDirection = UKismetMathLibrary::GetRightVector(Rotation);
 
-	return FinalRotation;
+    FRotator FinalRotation = UKismetMathLibrary::FindLookAtRotation(ForwardDirection * LastMoveInput.Y * -1.0f, RightDirection * LastMoveInput.X);
+
+    return FinalRotation;
 }
 
 bool APlayerCharacters::NormalAttack()
 {
-	bool SuccessfulAttack = false;
+    bool SuccessfulAttack = false;
+    
+    if (IsImmobile())
+        return false;
 
-	if (IsValid(AbilitySystem))
-	{
-		if (GetCharacterMovement()->IsMovingOnGround())
-		{
-			SuccessfulAttack = AbilitySystem->TryActivateAbilityByClass(NormalAttackClass);
-			//if (SuccessfulAttack)
-			//	ActiveSkill = (USkill*)CharacterCore->ReturnActiveSkill(EAttackCategory::NormalAttack);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Display, TEXT("Air Attack"));
-			SuccessfulAttack = AbilitySystem->TryActivateAbilityByClass(AirAttackClass);
-			if(SuccessfulAttack)
-				UE_LOG(LogTemp, Display, TEXT("Successful Air attack"));
-		}
+    if (IsValid(AbilitySystem))
+    {
+        if (GetCharacterMovement()->IsMovingOnGround())
+        {
+            SuccessfulAttack = AbilitySystem->TryActivateAbilityByClass(NormalAttackClass);
+            //if (SuccessfulAttack)
+            //	ActiveSkill = (USkill*)CharacterCore->ReturnActiveSkill(EAttackCategory::NormalAttack);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Display, TEXT("Air Attack"));
+            SuccessfulAttack = AbilitySystem->TryActivateAbilityByClass(AirAttackClass);
+            if (SuccessfulAttack)
+                UE_LOG(LogTemp, Display, TEXT("Successful Air attack"));
+        }
 
-		if (!SuccessfulAttack)
-		{
-			UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(BufferTag), FGameplayEventData());
-		}
-		
-	}
+        if (!SuccessfulAttack)
+        {
+            UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(BufferTag), FGameplayEventData());
+        }
 
-	return SuccessfulAttack;
+    }
+
+    return SuccessfulAttack;
 }
 
 bool APlayerCharacters::ChargeAttack()
 {
-	bool SuccessfulAttack = false;
+    bool SuccessfulAttack = false;
+    
+    if (IsImmobile())
+        return false;
 
-	if (IsValid(AbilitySystem))
-	{
-		if (GetCharacterMovement()->IsMovingOnGround())
-		{
-			SuccessfulAttack = AbilitySystem->TryActivateAbilityByClass(ChargeAttackClass);
-			if (SuccessfulAttack)
-				ActiveSkill = CharacterCore->GetHeavyAttack();
-		}
-	}
-	return SuccessfulAttack;
+    if (IsValid(AbilitySystem))
+    {
+        if (GetCharacterMovement()->IsMovingOnGround())
+        {
+            SuccessfulAttack = AbilitySystem->TryActivateAbilityByClass(ChargeAttackClass);
+            if (SuccessfulAttack)
+                ActiveSkill = CharacterCore->GetHeavyAttack();
+        }
+    }
+    return SuccessfulAttack;
 }
 
 bool APlayerCharacters::SkillAttack(int index)
 {
-	TArray<UPlayerSkill*> SkillList = CharacterCore->GetSkillList(OnGround);
-	bool SuccessfulAttack = false;
-	
-	if (index >= 0 && index < SkillList.Num())
-	{
-		SkillAttackBySkill(SkillList[index]);
-	}
+    TArray<UPlayerSkill*> SkillList = CharacterCore->GetSkillList(OnGround);
+    bool SuccessfulAttack = false;
 
-	return SuccessfulAttack;
+    if (index >= 0 && index < SkillList.Num())
+    {
+        SkillAttackBySkill(SkillList[index]);
+    }
+
+    return SuccessfulAttack;
 }
 
 bool APlayerCharacters::SkillAttackBySkill(UPlayerSkill* SkillRef)
 {
-	if (!IsValid(SkillRef)) 
-	{
-		UE_LOG(LogTemp, Display, TEXT("Invalid skillref"));
-		return false;
-	}
-		
+    if (!IsValid(SkillRef))
+    {
+        UE_LOG(LogTemp, Display, TEXT("Invalid skillref"));
+        return false;
+    }
+    
+    if (IsImmobile())
+        return false;
 
-	UE_LOG(LogTemp, Display, TEXT("SkillRef is valid"));
 
-	bool SuccessfulAttack = false;
+    UE_LOG(LogTemp, Display, TEXT("SkillRef is valid"));
 
-	if (SkillRef->IsReadyToUse())
-	{
-		TSubclassOf<UCharacterGameplayAbility> Classptr = SkillRef->ReturnAbilityClass();
+    bool SuccessfulAttack = false;
+    FGameplayEventData Payload;
 
-		if (Classptr)
-		{
-			SuccessfulAttack = AbilitySystem->TryActivateAbilityByClass(Classptr);
-		}
-		else
-		{
-			// THIS HAS TO GUARANTEE THAT IT WORKS
-			FGameplayEventData Payload;
-			Payload.OptionalObject = SkillRef;
-			UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, TAG_Ability_Input_Skill, Payload);
-			SuccessfulAttack = true;
-		}
-	}
+    if (SkillRef->IsReadyToUse())
+    {
+        TSubclassOf<UCharacterGameplayAbility> Classptr = SkillRef->ReturnAbilityClass();
+        Payload.OptionalObject = SkillRef;
+        SuccessfulAttack = true;
+        
+        if (Classptr)
+        {
+            SuccessfulAttack = AbilitySystem->TryActivateAbilityByClass(Classptr);
+        }
+        else
+        {
+            UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, TAG_Ability_Input_Skill_Activate, Payload);
+        }
+    }
+    
+    UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, TAG_Ability_Input_Skill, Payload);
 
-	return SuccessfulAttack;
+    return SuccessfulAttack;
 }
 
 bool APlayerCharacters::SummonAttack(AActor* Target, bool bUseGroundSkill)
 {
-	if (IsDead())
-	{
-		return false;
-	}
-	
-	bool SuccessfulAttack = false;
-	ARPGCharacterBase* targetChar;
+    if (IsDead())
+    {
+        return false;
+    }
 
-	if (bIsSummoned)
-		return false;
+    bool SuccessfulAttack = false;
+    ARPGCharacterBase* targetChar;
 
-	if (Target)
-	{
-		targetChar = Cast<ARPGCharacterBase>(Target);
-		if (targetChar)
-		{
-			bUseGroundSkill = targetChar->IsOnGround();
-		}
-	}
+    if (bIsSummoned)
+        return false;
 
-	if (IsValid(PartyController))
-	{
-		if (IsValid(AbilitySystem))
-		{
-			UPlayerSkill* SwitchSkill;
+    if (Target)
+    {
+        targetChar = Cast<ARPGCharacterBase>(Target);
+        if (targetChar)
+        {
+            bUseGroundSkill = targetChar->IsOnGround();
+        }
+    }
 
-			SwitchSkill = CharacterCore->GetSwitchSkill(bUseGroundSkill);
+    if (IsValid(PartyController))
+    {
+        if (IsValid(AbilitySystem))
+        {
+            UPlayerSkill* SwitchSkill;
 
-			SuccessfulAttack = SkillAttackBySkill(SwitchSkill);
-			if (SuccessfulAttack)
-			{
-				AutoTarget_Set(Target);
-				bIsSummoned = true;
-				// Use this for dealing with clipping through ground
-				GetCharacterMovement()->bRunPhysicsWithNoController = true;
-				/*if (!useSkillOnGround)
-				{
-					GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Falling);
-					TriggerAirTime(2.0f);
-				}*/
-			}
-		}
-		/*int chainLevelReq = CharacterCore->GetChainLevelRequirement(bUseGroundSkill);
-		int currentChainLevel = PartyController->GetSkillChainLevel();
-		if (chainLevelReq == currentChainLevel)
-		{
-			
-		}
-		else
-		{
-			UE_LOG(LogTemp, Display, TEXT("Did not meet the summon requirement. Current level is %d and required level %d"),currentChainLevel,chainLevelReq);
-		}*/
-	}
-	else
-	{
-		UE_LOG(LogTemp, Display, TEXT("Party Controller is null"));
-	}
+            SwitchSkill = CharacterCore->GetSwitchSkill(bUseGroundSkill);
 
-	
-	return SuccessfulAttack;
+            SuccessfulAttack = SkillAttackBySkill(SwitchSkill);
+            if (SuccessfulAttack)
+            {
+                AutoTarget_Set(Target);
+                bIsSummoned = true;
+                // Use this for dealing with clipping through ground
+                GetCharacterMovement()->bRunPhysicsWithNoController = true;
+                /*if (!useSkillOnGround)
+                {
+                    GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Falling);
+                    TriggerAirTime(2.0f);
+                }*/
+            }
+        }
+        /*int chainLevelReq = CharacterCore->GetChainLevelRequirement(bUseGroundSkill);
+        int currentChainLevel = PartyController->GetSkillChainLevel();
+        if (chainLevelReq == currentChainLevel)
+        {
+
+        }
+        else
+        {
+            UE_LOG(LogTemp, Display, TEXT("Did not meet the summon requirement. Current level is %d and required level %d"),currentChainLevel,chainLevelReq);
+        }*/
+    }
+    else
+    {
+        UE_LOG(LogTemp, Display, TEXT("Party Controller is null"));
+    }
+
+
+    return SuccessfulAttack;
 }
 
-void APlayerCharacters::ResetMovementCache() 
+void APlayerCharacters::ResetMovementCache()
 {
-	UE_LOG(LogTemp, Display, TEXT("Resetted movement cache"));
-	CanUseLastMoveInput = false;
+    UE_LOG(LogTemp, Display, TEXT("Resetted movement cache"));
+    CanUseLastMoveInput = false;
 }
 
 void APlayerCharacters::GainSkillEnergy(float BaseEnergy, bool bUseSPGain)
 {
-	if (bUseSPGain)
-	{
-		if (PlayerAttributes->GetSPGain() <= 0.0f)
-		{
-			UE_LOG(LogTemp, Display, TEXT("SPGain is not bonus, it's modifier"));
-			BaseEnergy *= (1+PlayerAttributes->GetSPGain());
-		}
-		else
-			BaseEnergy *= PlayerAttributes->GetSPGain();
-	}
+    if (bUseSPGain)
+    {
+        if (PlayerAttributes->GetSPGain() <= 0.0f)
+        {
+            UE_LOG(LogTemp, Display, TEXT("SPGain is not bonus, it's modifier"));
+            BaseEnergy *= (1 + PlayerAttributes->GetSPGain());
+        }
+        else
+            BaseEnergy *= PlayerAttributes->GetSPGain();
+    }
 
-	CharacterCore->FillAllSkillEnergy(BaseEnergy);
-	UpdateSkillDisplay();
+    CharacterCore->FillAllSkillEnergy(BaseEnergy);
+    UpdateSkillDisplay();
 }
 
 void APlayerCharacters::ExpendSkillEnergy(UPlayerSkill* SkillRef, float EnergyRatio)
 {
-	SkillRef->ExpendSkillEnergy(EnergyRatio);
-	UpdateSkillDisplay();
-	SkillActivated.Broadcast(this, SkillRef);
+    SkillRef->ExpendSkillEnergy(EnergyRatio);
+    UpdateSkillDisplay();
+    SkillActivated.Broadcast(this, SkillRef);
 }
 
 void APlayerCharacters::GainSkillEnergy(float BaseEnergy, FGameplayTag SkillElement, float MatchModifier, float MismatchModifier, bool bUseSPGain)
 {
-	if (bUseSPGain)
-	{
-		if (PlayerAttributes->GetSPGain() <= 0.0f)
-		{
-			UE_LOG(LogTemp, Display, TEXT("SPGain is not bonus, it's modifier"));
-			BaseEnergy *= (1 + PlayerAttributes->GetSPGain());
-		}
-		else
-			BaseEnergy *= PlayerAttributes->GetSPGain();
-	}
+    if (bUseSPGain)
+    {
+        if (PlayerAttributes->GetSPGain() <= 0.0f)
+        {
+            UE_LOG(LogTemp, Display, TEXT("SPGain is not bonus, it's modifier"));
+            BaseEnergy *= (1 + PlayerAttributes->GetSPGain());
+        }
+        else
+            BaseEnergy *= PlayerAttributes->GetSPGain();
+    }
 
-	CharacterCore->FillAllSkillEnergy(BaseEnergy,SkillElement,MatchModifier,MismatchModifier);
-	UpdateSkillDisplay();
+    CharacterCore->FillAllSkillEnergy(BaseEnergy, SkillElement, MatchModifier, MismatchModifier);
+    UpdateSkillDisplay();
 }
 
 void APlayerCharacters::GiveControllerRef(APlayerPartyController* ControllerRef)
 {
-	PartyController = ControllerRef;
+    PartyController = ControllerRef;
 }
 
 bool APlayerCharacters::IsInSkill() const
 {
-	return AbilitySystem->HasMatchingGameplayTag(TAG_Ability_Input_Skill);
+    return AbilitySystem->HasMatchingGameplayTag(TAG_Ability_Input_Skill);
 }
 
 void APlayerCharacters::SetIsSummoned(bool value)
 {
-	bIsSummoned = value;
+    bIsSummoned = value;
 }
 
 float APlayerCharacters::GetDamage() const
 {
-	if (AttributeSet)
-	{
-		return AttributeSet->GetDamage();
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("Attribute set is null"));
-	}
+    if (AttributeSet)
+    {
+        return AttributeSet->GetDamage();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Attribute set is null"));
+    }
 
-	return 0.0f;
+    return 0.0f;
 }
 
 void APlayerCharacters::SetRotationByInput()
 {
-	SetActorRotation(GetRotationByInput());
-	ResetMovementCache();
+    SetActorRotation(GetRotationByInput());
+    ResetMovementCache();
 }
 
 // Called when the game starts or when spawned
 void APlayerCharacters::BeginPlay()
 {
-	AbilitySystem->InitAbilityActorInfo(this, this);
-	Super::BeginPlay();
+    AbilitySystem->InitAbilityActorInfo(this, this);
+    Super::BeginPlay();
 }
 
 void APlayerCharacters::SetPlayerActive(bool IsActive)
 {
-	SetActorHiddenInGame(!IsActive);
-	SetActorEnableCollision(IsActive);
-	if(!IsActive)
-		GetCharacterMovement()->bRunPhysicsWithNoController = false;
+    SetActorHiddenInGame(!IsActive);
+    SetActorEnableCollision(IsActive);
+    if (!IsActive)
+        GetCharacterMovement()->bRunPhysicsWithNoController = false;
 }
 
-void APlayerCharacters::SwapIn() 
+void APlayerCharacters::SwapIn()
 {
-	UE_LOG(LogTemp, Display, TEXT("%s got swapped in"),*(GetName()));
-	CanMove = true;
+    UE_LOG(LogTemp, Display, TEXT("%s got swapped in"), *(GetName()));
+    CanMove = true;
 }
 
-void APlayerCharacters::SwapOut() 
+void APlayerCharacters::SwapOut()
 {
-	HasLockOn = false;
-	LockOnTarget = NULL;
+    HasLockOn = false;
+    LockOnTarget = NULL;
 }
 
-void APlayerCharacters::StartAttackPropel(USkill* SkillData)
+void APlayerCharacters::ReceiveXP(float XPAmount)
 {
-	Super::StartAttackPropel(SkillData);
+    GrowthComponent->ReceiveXP(XPAmount);
+}
+
+void APlayerCharacters::ReceiveSkillNode(USkillTreeNodeData* SkillTreeNode, FName SkillName)
+{
+    if (SkillTreeNode)
+    {
+        ActivateSkillNode(SkillTreeNode);
+
+        GrowthComponent->ReceiveSkillTreeNode(SkillTreeNode,SkillName);
+    }
+}
+
+void APlayerCharacters::ActivateSkillNode(USkillTreeNodeData* SkillTreeNode)
+{
+    FGameplayEffectContextHandle EffectContext = AbilitySystem->MakeEffectContext();
+    switch (SkillTreeNode->GetSkillNodeCategory())
+    {
+        case ESkillNodeCategory::StatBoost:
+            AbilitySystem->BP_ApplyGameplayEffectToSelf(SkillTreeNode->GetGrantedEffect(),1,EffectContext);
+            break;
+        case ESkillNodeCategory::AbilityGranted:
+            AbilitySystem->K2_GiveAbility(SkillTreeNode->GetGrantedAbility(),1);
+            break;
+        case ESkillNodeCategory::SkillGranted:
+            UnlockNewSkill(SkillTreeNode->GetPlayerSkill());
+            break;
+        case ESkillNodeCategory::SkillChainSlot:
+            break;
+    }
 }
 
 // Called to bind functionality to input
 void APlayerCharacters::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-	if(APlayerController* PlayerController = Cast<APlayerController>(Controller))
-	{
-		if(UEnhancedInputLocalPlayerSubsystem* Subsystem 
-		= ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->AddMappingContext(InputMapping,0);
-		}
-	}
+    Super::SetupPlayerInputComponent(PlayerInputComponent);
+    if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+    {
+        if (UEnhancedInputLocalPlayerSubsystem* Subsystem
+            = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+        {
+            Subsystem->AddMappingContext(InputMapping, 0);
+        }
+    }
 
-	if(UEnhancedInputComponent* Input = 
-	CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
-	{
-		Input->BindAction(MoveAction,ETriggerEvent::Triggered,this,&APlayerCharacters::Move);
-		Input->BindAction(MoveAction,ETriggerEvent::Completed,this,&APlayerCharacters::ResetMovementCache);
-		Input->BindAction(LookAction,ETriggerEvent::Triggered,this,&APlayerCharacters::Look);
-		Input->BindAction(JumpAction,ETriggerEvent::Started,this,&APlayerCharacters::Jump);
-		Input->BindAction(LookUpRateAction,ETriggerEvent::Triggered,this,&APlayerCharacters::LookUpRate);
-	}
+    if (UEnhancedInputComponent* Input =
+        CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
+    {
+        Input->BindAction(MoveAction, ETriggerEvent::Triggered, this, &APlayerCharacters::Move);
+        Input->BindAction(MoveAction, ETriggerEvent::Completed, this, &APlayerCharacters::ResetMovementCache);
+        Input->BindAction(LookAction, ETriggerEvent::Triggered, this, &APlayerCharacters::Look);
+        Input->BindAction(JumpAction, ETriggerEvent::Started, this, &APlayerCharacters::Jump);
+        Input->BindAction(LookUpRateAction, ETriggerEvent::Triggered, this, &APlayerCharacters::LookUpRate);
+    }
 
 }
 
 void APlayerCharacters::Move(const FInputActionValue& InputValue)
 {
-	FVector2D InputVector = InputValue.Get<FVector2D>();
+    FVector2D InputVector = InputValue.Get<FVector2D>();
 
-	if (IsValid(Controller) && !IsImmobile())
-	{
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation = FRotator(0.f,Rotation.Yaw,0.f);
-		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+    if (IsValid(Controller) && CanReceiveInput())
+    {
+        const FRotator Rotation = Controller->GetControlRotation();
+        const FRotator YawRotation = FRotator(0.f, Rotation.Yaw, 0.f);
+        const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+        const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		AddMovementInput(ForwardDirection, InputVector.Y);
-		AddMovementInput(RightDirection, InputVector.X);
-	}
-	LastMoveInput = InputVector;
-	CanUseLastMoveInput = true;
+        AddMovementInput(ForwardDirection, InputVector.Y);
+        AddMovementInput(RightDirection, InputVector.X);
+    }
+    LastMoveInput = InputVector;
+    CanUseLastMoveInput = true;
 }
 
 void APlayerCharacters::Look(const FInputActionValue& InputValue)
 {
-	FVector2D InputVector = InputValue.Get<FVector2D>();
-	if (IsValid(Controller))
-	{
-		AddControllerYawInput(InputVector.X);
-		AddControllerPitchInput(InputVector.Y);
-	}
+    FVector2D InputVector = InputValue.Get<FVector2D>();
+    if (IsValid(Controller))
+    {
+        AddControllerYawInput(InputVector.X);
+        AddControllerPitchInput(InputVector.Y);
+    }
 }
 
-void APlayerCharacters::LookUpRate(const struct FInputActionValue& InputValue) 
+void APlayerCharacters::LookUpRate(const struct FInputActionValue& InputValue)
 {
-	FVector2D InputVector = InputValue.Get<FVector2D>();
-	if (IsValid(Controller))
-	{
-		float RotationMod = RotationRate * GetWorld()->GetDeltaSeconds();
-		AddControllerYawInput(InputVector.X * RotationMod);
-		AddControllerPitchInput(InputVector.Y * RotationMod);
-	}
+    FVector2D InputVector = InputValue.Get<FVector2D>();
+    if (IsValid(Controller))
+    {
+        float RotationMod = RotationRate * GetWorld()->GetDeltaSeconds();
+        AddControllerYawInput(InputVector.X * RotationMod);
+        AddControllerPitchInput(InputVector.Y * RotationMod);
+    }
 }
 
 void APlayerCharacters::Jump()
 {
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, TAG_Ability_Input_Jump, FGameplayEventData());
+    UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, TAG_Ability_Input_Jump, FGameplayEventData());
 
-	if (!IsImmobile())
-	{
-		ACharacter::Jump();
-	}
+    if (CanReceiveInput())
+    {
+        ACharacter::Jump();
+    }
 }
 
-void APlayerCharacters::TriggerAirTime(float AirTime)
+void APlayerCharacters::UnlockNewSkill(UPlayerSkill* Skill)
 {
-	if (GetWorld()->GetTimerManager().IsTimerActive(AirTimerHandle))
-	{
-		GetWorld()->GetTimerManager().ClearTimer(AirTimerHandle);
-		UE_LOG(LogTemp, Display, TEXT("Cleared air timer"));
-	}
+    if (Skill->ReturnAbilityClass())
+    {
+        AbilitySystem->K2_GiveAbility(Skill->ReturnAbilityClass());
+    }
 
-	GetWorld()->GetTimerManager().SetTimer(
-		AirTimerHandle, // handle to cancel timer at a later time
-		this, // the owning object
-		&APlayerCharacters::EndAirTime, // function to call on elapsed
-		AirTime, // float delay until elapsed
-		false);
-	bIsPerformingAerialAction = true;
-
-	if (!AirTimerHandle.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("Air Timer somehow didn't get set"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Display, TEXT("Air timer handle set."));
-	}
-
+    CharacterCore->GiveNewSkill(Skill);
+    UpdateSkillDisplay();
 }
 
-void APlayerCharacters::TriggerAirTimeManual(bool bSuspendAir)
+UEquipmentComponent* APlayerCharacters::GetEquipmentComponent() const
 {
-	bIsPerformingAerialAction = bSuspendAir;
-
-	if (!bSuspendAir && GetWorld()->GetTimerManager().IsTimerActive(AirTimerHandle))
-	{
-		GetWorld()->GetTimerManager().ClearTimer(AirTimerHandle);
-	}
+    return EquipmentComponent;
 }
 
-void APlayerCharacters::EndAirTime()
+FEquipmentToSave APlayerCharacters::GetEquipmentSaveData() const
 {
-	Super::EndAirTime();
-	bIsPerformingAerialAction = false;
-	UE_LOG(LogTemp, Display, TEXT("Override EndAirTime called"));
+    return EquipmentComponent->GetSaveData();
 }
 
-void APlayerCharacters::DodgeFunction(float val)
+void APlayerCharacters::LoadEquipmentFromSaveData(FEquipmentToSave& SaveData)
 {
-	if (bIsPerformingAerialAction)
-	{
-		FVector FacingDir = GetActorForwardVector() * 1500.f * val;
-		UE_LOG(LogTemp, Display, TEXT("Dodge function calling set velocity in APlayerCharacters"));
-		SetVelocity(FVector(FacingDir.X, FacingDir.Y, 0.0f));
-	}
-	else
-		Super::DodgeFunction(val);
+    EquipmentComponent->LoadFromSaveData(SaveData);
 }
 

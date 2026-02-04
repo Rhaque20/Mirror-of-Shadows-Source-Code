@@ -15,7 +15,7 @@ UStatusEffectComponent::UStatusEffectComponent()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 
 	// ...
 }
@@ -36,7 +36,7 @@ void UStatusEffectComponent::BeginPlay()
 	
 }
 
-void UStatusEffectComponent::ApplyStatusDamage(FGameplayTag StatusTag, float StatusDamage)
+void UStatusEffectComponent::ApplyStatusDamage(UAbilitySystemComponent* Applier,FGameplayTag StatusTag, float StatusDamage)
 {
 	if (OwnerAbilitySystem)
 	{
@@ -50,9 +50,18 @@ void UStatusEffectComponent::ApplyStatusDamage(FGameplayTag StatusTag, float Sta
 
 		// Series of ifs cause cannot switch with tags to determine which tags to use.
 		// And what enums to use as well.
-		if (StatusTag == TAG_Damage_Status_Silence)
+		if (StatusTag == TAG_Damage_Status_Daze)
 		{
-			UE_LOG(LogTemp, Display, TEXT("Silence Damage received %f"),StatusDamage);
+			ActiveEffectTag = TAG_Status_Ailment_Daze;
+			StatusID = EStatusEffect::Daze;
+		}
+		else if (StatusTag == TAG_Damage_Status_Burn)
+		{
+			ActiveEffectTag = TAG_Status_Ailment_Burn;
+			StatusID = EStatusEffect::Burn;
+		}
+		else if (StatusTag == TAG_Damage_Status_Silence)
+		{
 			ActiveEffectTag = TAG_Status_Ailment_Silence;
 			StatusID = EStatusEffect::Silence;
 		}
@@ -61,7 +70,22 @@ void UStatusEffectComponent::ApplyStatusDamage(FGameplayTag StatusTag, float Sta
 			ActiveEffectTag = TAG_Status_Ailment_Slow;
 			StatusID = EStatusEffect::Slow;
 		}
-		else
+		else if (StatusTag == TAG_Damage_Status_Freeze)
+		{
+			ActiveEffectTag = TAG_Status_Ailment_Freeze;
+			StatusID = EStatusEffect::Freeze;
+		}
+		else if (StatusTag == TAG_Damage_Status_Shock)
+		{
+			ActiveEffectTag = TAG_Status_Ailment_Shock;
+			StatusID = EStatusEffect::Shock;
+		}
+		else if (StatusTag == TAG_Damage_Status_Curse)
+		{
+			ActiveEffectTag = TAG_Status_Ailment_Curse;
+			StatusID = EStatusEffect::Curse;
+		}
+		else 
 			return;
 
 		AActor* Owner = GetOwner();
@@ -89,11 +113,26 @@ void UStatusEffectComponent::ApplyStatusDamage(FGameplayTag StatusTag, float Sta
 
 				switch (StatusID)
 				{
+					case EStatusEffect::Daze:
+						StatusClass = DazeStatus;
+						break;
+					case EStatusEffect::Burn:
+						StatusClass = BurnStatus;
+						break;
 					case EStatusEffect::Silence:
 						StatusClass = SilenceStatus;
 						break;
 					case EStatusEffect::Slow:
 						StatusClass = SlowStatus;
+						break;
+					case EStatusEffect::Freeze:
+						StatusClass = FreezeStatus;
+						break;
+					case EStatusEffect::Shock:
+						StatusClass = ShockStatus;
+						break;
+					case EStatusEffect::Curse:
+						StatusClass = CurseStatus;
 						break;
 				}
 
@@ -101,7 +140,12 @@ void UStatusEffectComponent::ApplyStatusDamage(FGameplayTag StatusTag, float Sta
 				if (StatusClass)
 				{
 					FGameplayEffectContextHandle context = OwnerAbilitySystem->MakeEffectContext();
-					OwnerAbilitySystem->BP_ApplyGameplayEffectToSelf(StatusClass, 1, context);
+					if (Applier == nullptr)
+						OwnerAbilitySystem->BP_ApplyGameplayEffectToSelf(StatusClass, 1, context);
+					else
+					{
+						Applier->BP_ApplyGameplayEffectToTarget(StatusClass,OwnerAbilitySystem,1,context);
+					}
 				}
 				else
 				{
@@ -172,6 +216,9 @@ void UStatusEffectComponent::StatusBuildUpDecayTick()
 				case EStatusEffect::Slow:
 					StatusTag = TAG_Damage_Status_Slow;
 					break;
+				case EStatusEffect::Freeze:
+					StatusTag = TAG_Damage_Status_Freeze;
+					break;
 			}
 
 			// Mark for deletion if the accumulation is empty from the decay.
@@ -195,7 +242,7 @@ void UStatusEffectComponent::AddDecayTimer(EStatusEffect StatusEnum)
 {
 
 	// If no timer is present, make a new one and store it in the handle
-	if (!StatusBuildUpDecayTimer.IsValid())
+	if (!StatusBuildUpDecayTimer.IsValid() && !bUseAggregate)
 	{
 		GetWorld()->GetTimerManager().SetTimer(
 			StatusBuildUpDecayTimer, // handle to cancel timer at a later time
@@ -216,6 +263,11 @@ void UStatusEffectComponent::BroadcastStatusBuildUp(float BuildUpAmount, FGamepl
 	Payload.EventMagnitude = BuildUpAmount/100.0f;
 
 	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(GetOwner(), StatusTag, Payload);
+}
+
+void UStatusEffectComponent::AggregateTick(float DeltaTime)
+{
+	
 }
 
 

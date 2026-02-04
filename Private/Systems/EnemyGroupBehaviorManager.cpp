@@ -1,13 +1,14 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "EnemyGroupBehaviorManager.h"
+#include "Systems/EnemyGroupBehaviorManager.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GAS/UDGameplayTags.h"
 #include "EnemyCharacterBase.h"
+#include "DataAsset/EnemySkill.h"
 #include "Kismet/GameplayStatics.h"
 
 // Sets default values
@@ -15,7 +16,14 @@ AEnemyGroupBehaviorManager::AEnemyGroupBehaviorManager()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.TickInterval = 0.25f;
 
+}
+
+void AEnemyGroupBehaviorManager::SetTicketAmounts(int MaxMeleeTickets, int MaxRangeTickets)
+{
+    MeleeTickets = MaxMeleeTickets;
+    RangeTickets = MaxRangeTickets;
 }
 
 // Called when the game starts or when spawned
@@ -25,14 +33,6 @@ void AEnemyGroupBehaviorManager::BeginPlay()
         UE_LOG(LogTemp, Error, TEXT("MELEE TICKET EFFECT IS NULL!"));
     if (RangeTicketEffect == nullptr)
         UE_LOG(LogTemp, Error, TEXT("RANGE TICKET EFFECT IS NULL!"));
-
-    GetWorld()->GetTimerManager().SetTimer(
-        GroupLoopHandle,
-        this,
-        &AEnemyGroupBehaviorManager::EnemyGroupLoop,
-        LoopFrequency,
-        true);
-
 	Super::BeginPlay();
 	
 }
@@ -68,6 +68,7 @@ bool AEnemyGroupBehaviorManager::GiveTicket(AEnemyCharacterBase* Requester, FGam
         {
             ASCComponent = Requester->GetAbilitySystemComponent();
             RangeTickets--;
+            Requester->ReceiveTicket(TicketType);
             ASCComponent->BP_ApplyGameplayEffectToSelf(RangeTicketEffect, 1, ASCComponent->MakeEffectContext());
             TicketTracker.Add(Requester, TicketType);
             return true;
@@ -130,6 +131,7 @@ void AEnemyGroupBehaviorManager::ReceiveEnemy(AEnemyCharacterBase* Enemy)
     Enemy->OnStealTicket.BindUFunction(this, FName("StealTicket"));
     Enemy->OnReturnTicket.AddDynamic(this,&AEnemyGroupBehaviorManager::ReturnTicket);
     Enemy->CharacterDied.AddDynamic(this, &AEnemyGroupBehaviorManager::RemoveEnemy);
+    
     if (!bDetectedPlayer)
     {
         Enemy->OnDetectedPlayer.AddDynamic(this,&AEnemyGroupBehaviorManager::DetectedPlayer);
@@ -174,6 +176,18 @@ void AEnemyGroupBehaviorManager::DetectedPlayer(AActor* DetectedPlayer)
     OnBattleBegin.Broadcast(DetectedPlayer);
 }
 
+void AEnemyGroupBehaviorManager::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    
+    EnemyGroupLoop();
+    for (AEnemyCharacterBase* enemy: EnemiesInGroup)
+    {
+        enemy->GroupEnemyTick(DeltaSeconds);
+    }
+    
+}
+
 /// <summary>
 /// Primary loop of the manager. It's loop frequency is adjustable.
 /// Handles scoring of each enemy in the group to determine who gets the ticket
@@ -186,11 +200,15 @@ void AEnemyGroupBehaviorManager::EnemyGroupLoop()
         return;
 
     ACharacter* Player = UGameplayStatics::GetPlayerCharacter(this,0);
+    if (Player == nullptr)
+    {
+        return;
+    }
     FVector PlayerLocation = Player->GetActorLocation();
 
 
     // Queue to used to decide who will be given a ticket
-    TArray<EnemyScore*> EnemiesQueue;
+    TArray<EnemyScore*> EnemiesQueueMelee, EnemiesQueueRanged;
     EnemyScore* CurrentScore;
 
     for (AEnemyCharacterBase* Enemy : EnemiesInGroup)
@@ -212,55 +230,101 @@ void AEnemyGroupBehaviorManager::EnemyGroupLoop()
             EnemyScoreboard[Enemy] = CurrentScore;
             continue;
         }
+        
+        if (Enemy->IsImmobile())
+            continue;
+        
+        UEnemySkill* Skill = Enemy->GetDecidedSkill();
+        
+        if (Skill == nullptr)
+        {
+            CurrentScore->ScoreForDistance = 0.0f;
+            continue;
+        }
+        
+        bool bSkillIsRanged = Skill->GetHasProjecitle();
 
         // Determine how far they are. Using squared distance to save performance as we don't care about specifics yet.
         float DistanceScoreSqrd = UKismetMathLibrary::Vector_Distance2DSquared(PlayerLocation, Enemy->GetActorLocation());
 
-        if (DistanceScoreSqrd < ClosenessDistanceForMelee * ClosenessDistanceForMelee)
+        if (!bSkillIsRanged && DistanceScoreSqrd < ClosenessDistanceForMelee * ClosenessDistanceForMelee)
         {
             // Formula to use to give more points the closer the target is to the player
             // Now we care about how close they are so we square root the distance and consider them
             // for giving tickets.
             CurrentScore->ScoreForDistance = ClosenessDistanceForMelee - FMath::Sqrt(DistanceScoreSqrd);
-            EnemiesQueue.Add(CurrentScore);
+            EnemiesQueueMelee.Add(CurrentScore);
+            
+        }
+        else if (bSkillIsRanged && DistanceScoreSqrd < ClosenessDistanceForRange * ClosenessDistanceForRange)
+        {
+            CurrentScore->ScoreForDistance = ClosenessDistanceForRange - FMath::Sqrt(DistanceScoreSqrd);
+            EnemiesQueueRanged.Add(CurrentScore);
         }
         else
         {
             CurrentScore->ScoreForDistance = 0.0f;
-            EnemiesQueue.Add(CurrentScore);
+            if (bSkillIsRanged)
+                EnemiesQueueRanged.Add(CurrentScore);
+            else
+                EnemiesQueueMelee.Add(CurrentScore);
         }
+        
         // Set the changed struct.
         EnemyScoreboard[Enemy] = CurrentScore;
     }
 
-    if (EnemiesQueue.Num() == 0)
+    if (EnemiesQueueMelee.Num() == 0 && EnemiesQueueRanged.Num() == 0)
         return;
 
     // Overriding the < operator for EnemyScore lets us sort them based on their combined score
     // of distance + turns missed bonus with highest score as the first element
-    EnemiesQueue.Sort();
-
-    int TicketsToRemove = 0;
-    int n = EnemiesQueue.Num();
+    EnemiesQueueMelee.Sort();
+    EnemiesQueueRanged.Sort();
+    
+    int n = EnemiesQueueMelee.Num();
 
     for (int i = 0; i < n; i++)
     {
-        AEnemyCharacterBase* Enemy = EnemiesQueue[i]->EnemyRef;
-        EnemiesQueue[i]->EnemyRef = Enemy;
+        AEnemyCharacterBase* Enemy = EnemiesQueueMelee[i]->EnemyRef;
+        EnemiesQueueMelee[i]->EnemyRef = Enemy;
 
         // If we have tickets to give, grant it to the enemy
         if (MeleeTickets > 0)
         {
             GiveTicket(Enemy, TAG_EnemyAI_Ticket_Melee);
             // Reset their consolation points
-            EnemiesQueue[i]->ScoreByMissedTurns = 0.0f;
+            EnemiesQueueMelee[i]->ScoreByMissedTurns = 0.0f;
         }
         else
         {
             // Grant consolation points to increase their likelihood of getting their ticket next loop.
-            EnemiesQueue[i]->ScoreByMissedTurns += Enemy->ActorHasTag("Elite") ? ScoreBoostForMissedEliteTurns : ScoreBoostForMissedTurns;
+            EnemiesQueueMelee[i]->ScoreByMissedTurns += Enemy->ActorHasTag("Elite") ? ScoreBoostForMissedEliteTurns : ScoreBoostForMissedTurns;
         }
-        EnemyScoreboard[Enemy] = EnemiesQueue[i];
+        EnemyScoreboard[Enemy] = EnemiesQueueMelee[i];
     }
+    
+    n = EnemiesQueueRanged.Num();
+    
+    for (int i = 0; i < n; i++)
+    {
+        AEnemyCharacterBase* Enemy = EnemiesQueueRanged[i]->EnemyRef;
+        EnemiesQueueRanged[i]->EnemyRef = Enemy;
+
+        // If we have tickets to give, grant it to the enemy
+        if (RangeTickets > 0)
+        {
+            GiveTicket(Enemy, TAG_EnemyAI_Ticket_Range);
+            // Reset their consolation points
+            EnemiesQueueRanged[i]->ScoreByMissedTurns = 0.0f;
+        }
+        else
+        {
+            // Grant consolation points to increase their likelihood of getting their ticket next loop.
+            EnemiesQueueRanged[i]->ScoreByMissedTurns += Enemy->ActorHasTag("Elite") ? ScoreBoostForMissedEliteTurns : ScoreBoostForMissedTurns;
+        }
+        EnemyScoreboard[Enemy] = EnemiesQueueRanged[i];
+    }
+    
 }
 

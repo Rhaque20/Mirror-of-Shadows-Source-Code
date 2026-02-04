@@ -6,12 +6,13 @@
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
 #include "Enumerator/StatusEffectEnum.h"
+#include "Interfaces/AggregateTickInterface.h"
 
 #include "StatusEffectComponent.generated.h"
 
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class MIRROROFSHADOWS_API UStatusEffectComponent : public UActorComponent
+class MIRROROFSHADOWS_API UStatusEffectComponent : public UActorComponent, public IAggregateTickInterface
 {
 	GENERATED_BODY()
 
@@ -22,8 +23,10 @@ public:
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
-	const int BURN = 1, SILENCE = 2, SLOW = 3, POISON = 4, PARALYZE = 5, BLIND = 6;
+	const int DAZE = 0, BURN = 1, SILENCE = 2, SLOW = 3, FROZEN = 4, SHOCK = 5, BLIND = 6;
 
+	UPROPERTY(BlueprintReadOnly,EditDefaultsOnly)
+	TSubclassOf<class UGameplayEffect> DazeStatus;
 	UPROPERTY(BlueprintReadOnly,EditDefaultsOnly)
 	TSubclassOf<class UGameplayEffect> BurnStatus;
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
@@ -31,20 +34,20 @@ protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	TSubclassOf<class UGameplayEffect> SlowStatus;
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
-	TSubclassOf<class UGameplayEffect> PoisonStatus;
+	TSubclassOf<class UGameplayEffect> FreezeStatus;
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
-	TSubclassOf<class UGameplayEffect> ParalyzeStatus;
+	TSubclassOf<class UGameplayEffect> ShockStatus;
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
-	TSubclassOf<class UGameplayEffect> BlindStatus;
+	TSubclassOf<class UGameplayEffect> CurseStatus;
 
-	UPROPERTY(BlueprintReadOnly,VisibleDefaultsOnly, meta = (ToolTip="0 = Bleed, 1 = Burn, 2 = Silence, 3 = Slow, 4 = Poison, 5 = Paralyze, 6 = Blind"))
+	UPROPERTY(BlueprintReadOnly,VisibleDefaultsOnly, meta = (ToolTip="0 = Daze, 1 = Burn, 2 = Silence, 3 = Slow, 4 = Frozen, 5 = Shock, 6 = Curse"))
 	TArray<float> StatusDamageAccumulation = TArray<float>{ 0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f };
 
 	UPROPERTY()
 	int NumberofActiveEffects;
 
 	UPROPERTY()
-	int BurnStacks = 0, PoisonStacks = 0;
+	int BurnStacks = 0, ShockStacks = 0;
 
 	UPROPERTY(VisibleDefaultsOnly)
 	class UAbilitySystemComponent* OwnerAbilitySystem;
@@ -62,13 +65,16 @@ protected:
 	UPROPERTY()
 	float DecayPerSecond = 5.0f;
 	
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	bool bUseAggregate = false;
+	
 
 public:	
 	// Called every frame
 	/*virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;*/
 
 	UFUNCTION()
-	void ApplyStatusDamage(FGameplayTag StatusTag,float StatusDamage);
+	void ApplyStatusDamage(class UAbilitySystemComponent* Applier,FGameplayTag StatusTag,float StatusDamage);
 
 	UFUNCTION()
 	void StatusBuildUpDecayTick();
@@ -78,8 +84,9 @@ public:
 
 	UFUNCTION()
 	void BroadcastStatusBuildUp(float BuildUpAmount, FGameplayTag StatusTag);
-
-protected:
+	
+	UFUNCTION()
+	void AggregateTick(float DeltaTime) override;
 
 
 		

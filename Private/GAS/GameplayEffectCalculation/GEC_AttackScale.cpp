@@ -19,8 +19,10 @@ struct FDamageStatics
     DECLARE_ATTRIBUTE_CAPTUREDEF(BlockPower);
     DECLARE_ATTRIBUTE_CAPTUREDEF(Damage);
     DECLARE_ATTRIBUTE_CAPTUREDEF(CritRate);
+    DECLARE_ATTRIBUTE_CAPTUREDEF(CritRes);
     DECLARE_ATTRIBUTE_CAPTUREDEF(CritDMG);
     DECLARE_ATTRIBUTE_CAPTUREDEF(ElementDMGBoost);
+    DECLARE_ATTRIBUTE_CAPTUREDEF(TotalDMGBoost);
     DECLARE_ATTRIBUTE_CAPTUREDEF(HitResultModifier);
 
     FDamageStatics()
@@ -28,6 +30,7 @@ struct FDamageStatics
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,HP, Source,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,TotalATK, Source,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,CritRate, Source,false);
+        DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,CritRes, Target,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,CritDMG, Source,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,SkillModifier, Source,true);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,DMGRes,Target,false);
@@ -35,6 +38,7 @@ struct FDamageStatics
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,Damage, Target,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet,TotalDEF, Target,false);
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet, ElementDMGBoost, Source, false);
+        DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet, TotalDMGBoost, Source, false);
         // We want to snapshot the value at the time this effect got calculated
         DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseAttributeSet, HitResultModifier, Source, true);
     }
@@ -56,8 +60,10 @@ UGEC_AttackScale::UGEC_AttackScale()
     RelevantAttributesToCapture.Add(DamageStatics().DMGResDef);
     RelevantAttributesToCapture.Add(DamageStatics().BlockPowerDef);
     RelevantAttributesToCapture.Add(DamageStatics().CritRateDef);
+    RelevantAttributesToCapture.Add(DamageStatics().CritResDef);
     RelevantAttributesToCapture.Add(DamageStatics().CritDMGDef);
     RelevantAttributesToCapture.Add(DamageStatics().ElementDMGBoostDef);
+    RelevantAttributesToCapture.Add(DamageStatics().TotalDMGBoostDef);
     RelevantAttributesToCapture.Add(DamageStatics().HitResultModifierDef);
 }
 
@@ -89,9 +95,11 @@ void UGEC_AttackScale::Execute_Implementation(const FGameplayEffectCustomExecuti
     float SkillModifier = 0.0f;
     float ElementBoost = 0.0f;
     float HitResultModifier = 0.0f;
+    float TotalDMGBoost = 0.0f;
 
     ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().SkillModifierDef, EvaluationParameters, SkillModifier);
     ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().ElementDMGBoostDef, EvaluationParameters, ElementBoost);
+    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().TotalDMGBoostDef, EvaluationParameters, TotalDMGBoost);
     ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().HitResultModifierDef, EvaluationParameters, HitResultModifier);
 
     if (ElementBoost > 0.0f)
@@ -107,6 +115,7 @@ void UGEC_AttackScale::Execute_Implementation(const FGameplayEffectCustomExecuti
     float FinalDMGRes = 0.0f;
     float BlockPower = 0.0f;
     float CriticalChance = 0.05f;
+    float CriticalRes = 0.0f;
     float CriticalDMG = 0.0f;
     int DidHit = (int)HitResultModifier;// -1 = Missed, 0 = Hit, 1 = Critical Hit
 
@@ -114,6 +123,7 @@ void UGEC_AttackScale::Execute_Implementation(const FGameplayEffectCustomExecuti
     ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().TotalDEFDef, EvaluationParameters, FinalDefense);
     ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().DMGResDef, EvaluationParameters, FinalDMGRes);
     ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CritRateDef, EvaluationParameters, CriticalChance);
+    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CritResDef, EvaluationParameters, CriticalRes);
 
     if (IsBlocked(TargetActor,OwningActor) && TargetASC->HasMatchingGameplayTag(TAG_Effect_Defensive_Block))
     {
@@ -122,7 +132,7 @@ void UGEC_AttackScale::Execute_Implementation(const FGameplayEffectCustomExecuti
 
     if (DidHit >= 0)
     {
-        if (FMath::RandRange(0.0f,1.0f) <= CriticalChance)
+        if (FMath::RandRange(0.0f,1.0f) <= (CriticalChance - CriticalRes))
         {
             UE_LOG(LogTemp, Display, TEXT("CRITICAL HIT!"));
             ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CritDMGDef, EvaluationParameters, CriticalDMG);
@@ -138,7 +148,7 @@ void UGEC_AttackScale::Execute_Implementation(const FGameplayEffectCustomExecuti
     UE_LOG(LogTemp, Display, TEXT("Attacker's Attack with ATK Bonus: %f"),FinalAttack);
 
     FinalDamage = (FinalAttack * SkillModifier)/(FinalDefense/300 + 1);
-    FinalDamage *= (1 - FinalDMGRes) * (1 - BlockPower) * (1 + CriticalDMG) * (1+ElementBoost);
+    FinalDamage *= (1 - FinalDMGRes) * (1 - BlockPower) * (1 + CriticalDMG) * (1+ElementBoost) * (1+TotalDMGBoost);
 
     if (DidHit < 0)// If the hit was registered as a miss, reduce it to 70%
     {

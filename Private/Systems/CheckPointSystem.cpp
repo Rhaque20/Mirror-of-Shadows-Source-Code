@@ -7,7 +7,7 @@
 ACheckPointSystem::ACheckPointSystem()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 
 }
 
@@ -20,6 +20,7 @@ void ACheckPointSystem::UpdatePlayerPosition(ACheckPoint* activePoint)
     {
         UE_LOG(LogTemp, Display, TEXT("P1 CheckPoint Index: %d"), newIdx);
         P1ChkPnt = newIdx;
+        OnCheckpointUpdate.Broadcast(activePoint->GetActorLocation());
     }
     else
     {
@@ -37,12 +38,5 @@ void ACheckPointSystem::BeginPlay()
     {
         CheckPointList[i]->UpdateP1Position.AddDynamic(this, &ACheckPointSystem::UpdatePlayerPosition);
     }
-}
-
-// Called every frame
-void ACheckPointSystem::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
 }
 

@@ -7,8 +7,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/StatusEffectComponent.h"
-#include "AbilitySystemBlueprintLibrary.h"
-#include "Components/StaggerComponent.h"
+#include "GameplayAbilities/Public/GameplayEffectTypes.h"
 #include "GAS/UDGameplayTags.h"
 
 
@@ -25,11 +24,6 @@ bool ARPGCharacterBase::IsDead() const
 bool ARPGCharacterBase::IsImmobile() const
 {
 	return AbilitySystem->HasAnyMatchingGameplayTags(ImmobilizedTags);
-}
-
-void ARPGCharacterBase::StartDodge()
-{
-	StopDodgeTimeLine();
 }
 
 void ARPGCharacterBase::ActivateSkill()
@@ -81,71 +75,6 @@ void ARPGCharacterBase::AutoTarget_Set(AActor* Target)
 {
 }
 
-void ARPGCharacterBase::AttackForceUpdate(float val)
-{
-	float HorizontalCurveVal = 0.0f, VerticalForce = GetCharacterMovement()->Velocity.Z;
-	FVector AttackDirection;
-	if (ActiveSkill)
-	{
-		if(ActiveSkill->GetLaunchCurve())
-			HorizontalCurveVal = ActiveSkill->GetLaunchCurve()->GetFloatValue(val);
-
-		/*if (ActiveSkill->ReturnHasVerticalForce())
-		{
-			VerticalForce = ActiveSkill->GetVerticalLaunchCurve()->GetFloatValue(val) * ActiveSkill->GetVerticalLaunchForce();
-			UE_LOG(LogTemp, Display, TEXT("Use Vertical force of %f "), VerticalForce);
-		}*/
-		AttackDirection = FVector(ActiveSkill->GetLaunchForce() * GetActorForwardVector() * HorizontalCurveVal);
-		SetVelocity(FVector(AttackDirection.X,AttackDirection.Y,VerticalForce));
-
-	}
-	else
-	{
-		UE_LOG(LogTemp, Display, TEXT("Active skill is null in force update"));
-	}
-}
-
-void ARPGCharacterBase::TriggerAirTime(float AirTime)
-{
-	if (GetWorld()->GetTimerManager().IsTimerActive(AirTimerHandle))
-	{
-		GetWorld()->GetTimerManager().ClearTimer(AirTimerHandle);
-		UE_LOG(LogTemp, Display, TEXT("Cleared air timer"));
-	}
-
-	GetWorld()->GetTimerManager().SetTimer(
-		AirTimerHandle, // handle to cancel timer at a later time
-		this, // the owning object
-		&ARPGCharacterBase::EndAirTime, // function to call on elapsed
-		AirTime, // float delay until elapsed
-		false); // looping?
-}
-
-void ARPGCharacterBase::TriggerAirTimeManual(bool bSuspendAir)
-{
-
-}
-
-void ARPGCharacterBase::EndAirTime()
-{
-	if (GetWorld()->GetTimerManager().IsTimerActive(AirTimerHandle))
-	{
-		GetWorld()->GetTimerManager().ClearTimer(AirTimerHandle);
-	}
-}
-
-void ARPGCharacterBase::StartAttackPropel(USkill* SkillData)
-{
-	CanMove = false;
-	ActiveSkill = SkillData;
-
-	UE_LOG(LogTemp, Display, TEXT("Received skilldata %s"),*(ActiveSkill->GetSkillName()));
-
-	StopLaunchTimeLine();
-	AttackForceTimeline.SetTimelineLength(ActiveSkill->GetAnimation(0)->GetPlayLength());
-	AttackForceTimeline.PlayFromStart();
-}
-
 void ARPGCharacterBase::SetVelocity(FVector VelocityChange)
 {
 	GetMovementComponent()->Velocity = VelocityChange;
@@ -163,70 +92,17 @@ void ARPGCharacterBase::SetSkillModifier(float modifier)
 	}
 }
 
-void ARPGCharacterBase::StopLaunchTimeLine()
-{
-	if (AttackForceTimeline.IsPlaying())
-		AttackForceTimeline.Stop();
-}
-
-void ARPGCharacterBase::StopDodgeTimeLine()
-{
-	if (DodgeTimeline.IsPlaying())
-		DodgeTimeline.Stop();
-}
-
-void ARPGCharacterBase::HardPlungeState(bool bHardPlungeToggle, float DiveVelocity)
-{
-	HardPlungeVelocity = DiveVelocity;
-	bInHardPlunge = bHardPlungeToggle;
-
-	if (bInHardPlunge)
-	{
-		UE_LOG(LogTemp, Display, TEXT("Canceling momentum"));
-		SetVelocity(FVector::Zero());
-	}
-	else
-	{
-		UE_LOG(LogTemp, Display, TEXT("Ending hard plunge state"));
-	}
-		
-}
-
-void ARPGCharacterBase::DodgeFunction(float val)
-{
-	FVector FacingDir = GetActorForwardVector() * 1500.f * val;
-	float ZVelocity = GetCharacterMovement()->Velocity.Z;
-	UE_LOG(LogTemp, Display, TEXT("Setting velocity in dodge function of ARPGCharacterBase"));
-	SetVelocity(FVector(FacingDir.X, FacingDir.Y, ZVelocity));
-
-}
-
 void ARPGCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
 
 	UE_LOG(LogTemp, Display, TEXT("Calling RPGCharacterBase BeginPlay"));
 
-	InterpFunction.BindUFunction(this, "AttackForceUpdate");
-
-	DodgeInterpFunction.BindUFunction(this, "DodgeFunction");
-
-	DodgeTimeline.AddInterpFloat(DodgeCurve, DodgeInterpFunction);
-	
-	AttackForceTimeline.AddInterpFloat(DefaultTimeCurve, InterpFunction);
-	DodgeTimeline.SetTimelineLength(0.6f);
-
 	AttachWeaponsToSockets();
 	InitializeAttributes();
 
 	OriginalMoveSpeed = GetCharacterMovement()->GetMaxSpeed();
-}
-
-void ARPGCharacterBase::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-	AttackForceTimeline.TickTimeline(DeltaTime);
-	DodgeTimeline.TickTimeline(DeltaTime);
+	AbilitySystem->GetGameplayAttributeValueChangeDelegate(UBaseAttributeSet::GetMoveSpeedAttribute()).AddUObject(this,&ARPGCharacterBase::OnMoveSpeedChange);
 }
 
 ARPGCharacterBase::ARPGCharacterBase() 
@@ -254,7 +130,12 @@ void ARPGCharacterBase::AttachWeaponsToSockets()
 	}
 }
 
-void ARPGCharacterBase::InitializeAttributes()
+void ARPGCharacterBase::OnMoveSpeedChange(const FOnAttributeChangeData& Data)
+{
+	GetCharacterMovement()->MaxWalkSpeed = OriginalMoveSpeed * Data.NewValue;
+}
+
+void ARPGCharacterBase::InitializeAttributes(int level)
 {
 	if (!IsValid(AbilitySystem))
 	{
@@ -267,6 +148,11 @@ void ARPGCharacterBase::InitializeAttributes()
 
 	FGameplayEffectContextHandle EffectContext = AbilitySystem->MakeEffectContext();
 	EffectContext.AddSourceObject(this);
+
+	if (level > Level)
+	{
+		Level = level;
+	}
 
 	FGameplayEffectSpecHandle NewHandle = AbilitySystem->MakeOutgoingSpec(DefaultAttributes, Level, EffectContext);
 

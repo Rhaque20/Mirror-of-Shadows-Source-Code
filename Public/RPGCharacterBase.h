@@ -6,7 +6,6 @@
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
 #include "Interfaces/HitStopInterface.h"
-#include "Components/TimelineComponent.h"
 #include "GameplayTagContainer.h"
 
 #include "RPGCharacterBase.generated.h"
@@ -49,12 +48,6 @@ class MIRROROFSHADOWS_API ARPGCharacterBase : public ACharacter,public IAbilityS
         void PerformDodge();
 
         UFUNCTION(BlueprintCallable)
-        virtual void StartDodge();
-
-        UFUNCTION(BlueprintImplementableEvent,BlueprintCallable)
-        void CancelDodge();
-
-        UFUNCTION(BlueprintCallable)
         virtual void ActivateSkill();
 
         UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
@@ -72,49 +65,23 @@ class MIRROROFSHADOWS_API ARPGCharacterBase : public ACharacter,public IAbilityS
         UFUNCTION(BlueprintCallable)
         virtual void AutoTarget_Set(AActor* Target);
 
-        UFUNCTION()
-        virtual void AttackForceUpdate(float val);
-
-        UFUNCTION(BlueprintCallable)
-        virtual void TriggerAirTime(float AirTime = 2.0f);
-
-        UFUNCTION(BlueprintCallable)
-        virtual void TriggerAirTimeManual(bool bSuspendAir);
-
-        UFUNCTION(BlueprintCallable)
-        virtual void EndAirTime();
-
-        UFUNCTION(BlueprintCallable)
-        virtual void StartAttackPropel(class USkill* SkillData);
-
         virtual void SetVelocity(FVector VelocityChange);
 
         void PoiseBreak();
 
         void StunBreak();
 
+        void InitializeAttributes(int level = -1);
+
     protected:
         UFUNCTION(BlueprintCallable)
         void SetSkillModifier(float modifier);
 
-        UFUNCTION(BlueprintCallable)
-        void StopLaunchTimeLine();
-
-        UFUNCTION(BlueprintCallable)
-        void StopDodgeTimeLine();
-
-        UFUNCTION(BlueprintCallable)
-        void HardPlungeState(bool bHardPlungeToggle, float DiveVelocity);
-
-        UFUNCTION()
-        virtual void DodgeFunction(float val);
-
         virtual void BeginPlay() override;
-        virtual void Tick(float DeltaTime) override;
 
         void AttachWeaponsToSockets();
-
-        void InitializeAttributes();
+    
+        void OnMoveSpeedChange(const struct FOnAttributeChangeData& Data);
 
     public:
         UPROPERTY(BlueprintAssignable, BlueprintCallable,Category = "CharacterDeath")
@@ -145,18 +112,6 @@ class MIRROROFSHADOWS_API ARPGCharacterBase : public ACharacter,public IAbilityS
 
         UPROPERTY(EditDefaultsOnly,BlueprintReadWrite)
         class UBaseAttributeSet* AttributeSet;
-
-        UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-        class UCurveFloat* DodgeCurve;
-
-        UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
-        class UCurveFloat* DefaultTimeCurve;
-
-        FTimeline AttackForceTimeline;
-        FTimeline DodgeTimeline;
-
-        FOnTimelineFloat InterpFunction;
-        FOnTimelineFloat DodgeInterpFunction;
 
         UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (ToolTip = "Responsible for delaying falling"))
         FTimerHandle AirTimerHandle;

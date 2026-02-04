@@ -37,6 +37,10 @@ class MIRROROFSHADOWS_API UBaseAttributeSet : public UAttributeSet
 		UPROPERTY(BlueprintReadOnly, Category = "Total Health")
 		FGameplayAttributeData TotalHP;
 		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, TotalHP);
+	
+		UPROPERTY(BlueprintReadOnly, Category = "Bonus Health")
+		FGameplayAttributeData BonusHP;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, BonusHP);
 		
 		UPROPERTY(BlueprintReadOnly, Category = "Total Attack")
 		FGameplayAttributeData TotalATK;
@@ -165,6 +169,10 @@ class MIRROROFSHADOWS_API UBaseAttributeSet : public UAttributeSet
 		UPROPERTY(BlueprintReadOnly, Category = "Special Stats")
 		FGameplayAttributeData Tenacity;
 		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, Tenacity);
+	
+		UPROPERTY(BlueprintReadOnly, Category = "Special Stats")
+		FGameplayAttributeData CritRes;
+		BASEGAS_ATTRIBUTE_ACCESSORS(UBaseAttributeSet, CritRes);
 
 
 	public:

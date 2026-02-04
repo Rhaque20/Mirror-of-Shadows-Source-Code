@@ -1,5 +1,5 @@
 #include "RPGItemStruct.h"
-
+#include "Structs/EquipmentStatStruct.h"
 #include "ArmorDataStruct.generated.h"
 #pragma once
 
@@ -24,10 +24,8 @@ struct FArmorData : public FRPGItemData
 	float MainStatValue;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TMap<FGameplayTag, float> Substats;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<int> SubstatRarities;
+	TSet<FEquipmentStat> Substats;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EGrade EquipmentGrade;
 

@@ -40,11 +40,7 @@ protected:
 	FTimerHandle StaggerTimerHandle;
 
 public:	
-	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
-	UFUNCTION(BlueprintCallable)
-	void ApplyKnockback(FVector AttackerLocation, FVector2D KnockbackPower, bool bExtendAirTime = true);
+	
 
 	UFUNCTION(BlueprintCallable,BlueprintImplementableEvent)
 	void OnPoiseBreak();

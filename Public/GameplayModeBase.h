@@ -9,6 +9,8 @@
 /**
  * 
  */
+ 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerControllerSpawn, APlayerController*,PlayerController);
 UCLASS()
 class MIRROROFSHADOWS_API AGameplayModeBase : public AGameModeBase
 {
@@ -17,5 +19,9 @@ class MIRROROFSHADOWS_API AGameplayModeBase : public AGameModeBase
 	public:
 		void StartGame();
 		virtual void BeginPlay() override;
+		virtual void PostLogin(APlayerController* NewPlayer) override;
+		
+	public:
+		FOnPlayerControllerSpawn OnPlayerControllerSpawn;
 	
 };

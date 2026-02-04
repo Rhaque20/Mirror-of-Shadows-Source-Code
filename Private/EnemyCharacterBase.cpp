@@ -14,16 +14,18 @@
 #include "GAS/CharacterGameplayAbility.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "EnemyAIController.h"
+#include "Components/EntityRewardComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 // Sets default values
 AEnemyCharacterBase::AEnemyCharacterBase()
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	AbilitySystem = CreateDefaultSubobject<UCustomAbilitySystemComponent>("AbilitySystem");
 	AttributeSet = CreateDefaultSubobject<UEnemyAttributeSet>("AttributeSet");
 	SkillCooldownManager = CreateDefaultSubobject<USkillCooldownManagerComponent>(TEXT("SkillCDManager"));
+	RewardComponent = CreateDefaultSubobject<UEntityRewardComponent>(TEXT("EntityRewardComponent"));
 	// StaggerComponent = CreateDefaultSubobject<UStaggerComponent>(TEXT("Stagger Component"));
 
 }
@@ -40,6 +42,16 @@ void AEnemyCharacterBase::AutoTarget()
 
 void AEnemyCharacterBase::ReceivePlayerTarget(AActor* PlayerRef)
 {
+	if (bStartUnaware)
+	{
+		AbilitySystem->RemoveActiveGameplayEffect(UnawareEffect);
+	}
+	
+	if (HitEventWaiter)
+	{
+		HitEventWaiter->EndAction();
+	}
+	
 	AttackTarget = PlayerRef;
 	DetectedTarget = true;
 	AEnemyAIController* ControllerRef = Cast<AEnemyAIController>(GetController());
@@ -50,6 +62,8 @@ void AEnemyCharacterBase::ReceivePlayerTarget(AActor* PlayerRef)
 	MoveComp->Velocity = velocity;
 	OnDetectedPlayer.Broadcast(PlayerRef);
 	
+	StartDecision();
+	
 }
 
 void AEnemyCharacterBase::CleanUp()
@@ -57,6 +71,8 @@ void AEnemyCharacterBase::CleanUp()
 	OnRequestTicket.Unbind();
 	OnReturnTicket.RemoveAll(this);
 	OnStealTicket.Unbind();
+	
+	AbilitySystem->GetGameplayAttributeValueChangeDelegate(UBaseAttributeSet::GetMoveSpeedAttribute()).RemoveAll(this);
 
 }
 
@@ -75,33 +91,30 @@ void AEnemyCharacterBase::ReceiveTicket(FGameplayTag TicketToReceive)
 	}*/
 
 	CurrentTicket = TicketToReceive;
-	GetWorld()->GetTimerManager().ClearTimer(DecisionTimerHandle);
-
-	GetWorld()->GetTimerManager().SetTimer(
-		DecisionTimerHandle,
-		this,
-		&AEnemyCharacterBase::PreparingForAttack,
-		DecisionTickInterval,
-		true);
+	
+	if (!SkillToUse)
+	{
+		ReturnTicket();
+		StartDecision();
+	}
+	else
+	{
+		bCanDecide = false;
+	}
 }
 
 void AEnemyCharacterBase::ReturnTicket()
 {
+	OnReturnTicket.Broadcast(this, CurrentTicket);
 	CurrentTicket = FGameplayTag::EmptyTag;
-	OnReturnTicket.Broadcast(this, TAG_EnemyAI_Ticket_Melee);
-	GetWorld()->GetTimerManager().ClearTimer(DecisionTimerHandle);
-
-	/*GetWorld()->GetTimerManager().SetTimer(
-		DecisionTimerHandle,
-		this,
-		&AEnemyCharacterBase::RequestTicket,
-		DecisionTickInterval,
-		true);*/
 }
 
-void AEnemyCharacterBase::UseSkill(UEnemySkill* Skill)
+bool AEnemyCharacterBase::UseSkill()
 {
-	TSubclassOf<UCharacterGameplayAbility> Classptr = Skill->ReturnAbilityClass();
+	if (SkillToUse == nullptr)
+		return false;
+	
+	TSubclassOf<UCharacterGameplayAbility> Classptr = SkillToUse->ReturnAbilityClass();
 
 	if (Classptr)
 	{
@@ -111,54 +124,39 @@ void AEnemyCharacterBase::UseSkill(UEnemySkill* Skill)
 	{
 		// THIS HAS TO GUARANTEE THAT IT WORKS
 		FGameplayEventData Payload;
-		Payload.OptionalObject = Skill;
+		Payload.OptionalObject = SkillToUse;
 		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, TAG_Ability_Input_NormalAttack, Payload);
 	}
+	
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, TAG_Ability_Input_Skill, FGameplayEventData());
+	
+	SkillToUse = nullptr;
+	bCanDecide = false;
+	
+	return true;
 }
 
 void AEnemyCharacterBase::PreparingForAttack()
 {
-	if (CurrentTicket == FGameplayTag::EmptyTag)
-	{
-		GetWorld()->GetTimerManager().ClearTimer(DecisionTimerHandle);
-
-		/*GetWorld()->GetTimerManager().SetTimer(
-			DecisionTimerHandle,
-			this,
-			&AEnemyCharacterBase::RequestTicket,
-			DecisionTickInterval,
-			true);*/
-
-		return;
-	}
-
-	if (IsImmobile())
+	if (IsImmobile() || AbilitySystem->HasMatchingGameplayTag(TAG_Ability_Input))
 	{
 		return;
 	}
 
-	UEnemySkill* SkillToUse = ReturnAvailableSkill();
+	SkillToUse = ReturnAvailableSkill();
+}
 
-	if (SkillToUse)
-	{
-		UseSkill(SkillToUse);
-	}
+void AEnemyCharacterBase::StartDecision()
+{
+	// NOTE TO REPLACE WITH AGGREGATE TICK VERSION
+	bCanDecide = true;
 }
 
 void AEnemyCharacterBase::OnAttackDelayStatusChange(FGameplayTag DelayTag,FActiveGameplayEffectHandle EffectHandle, int32 NewStackCount, int32 PreviousStackCount)
 {
 	if (DelayTag == TAG_Effect_State_AttackDelay && NewStackCount == 0)
 	{
-		/*if (!DecisionTimerHandle.IsValid())
-		{
-			UE_LOG(LogTemp, Display, TEXT("Number of instances of the tag is %d"), NewStackCount);
-			GetWorld()->GetTimerManager().SetTimer(
-				DecisionTimerHandle,
-				this,
-				&AEnemyCharacterBase::RequestTicket,
-				DecisionTickInterval,
-				true);
-		}*/
+		StartDecision();
 		
 	}
 	else
@@ -171,10 +169,21 @@ void AEnemyCharacterBase::OnAttackDelayStatusChange(FGameplayTag DelayTag,FActiv
 void AEnemyCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	AggregateComponents = GetComponentsByInterface(UAggregateTickInterface::StaticClass());
+	
 
 	if (SkillCooldownManager)
 	{
 		SkillCooldownManager->SetUpSkillCooldowns(Moveset);
+		for (UEnemySkill* skillData : Moveset)
+		{
+			if (skillData->GetHasProjecitle())
+			{
+				bCanUseRanged = true;
+				break;
+			}
+		}
 	}
 	else
 	{
@@ -182,22 +191,13 @@ void AEnemyCharacterBase::BeginPlay()
 	}
 
 	// Create a task to handle listening to when gameplay effect stacks change, specifically attack delay
-	//AttackDelayListener = UAsyncTaskEffectStackChanged::ListenForGameplayEffectStackChange_CPP(AbilitySystem, TAG_Effect_State_AttackDelay, true, FStackChangeFunction::CreateUObject(this, &AEnemyCharacterBase::OnAttackDelayStatusChange));
-
-	/*GetWorld()->GetTimerManager().SetTimer(
-		DecisionTimerHandle,
-		this,
-		&AEnemyCharacterBase::RequestTicket,
-		DecisionTickInterval,
-		true);*/
+	AttackDelayListener = UAsyncTaskEffectStackChanged::ListenForGameplayEffectStackChange_CPP(AbilitySystem, TAG_Effect_State_AttackDelay, true, FStackChangeFunction::CreateUObject(this, &AEnemyCharacterBase::OnAttackDelayStatusChange));
 	
-}
-
-// Called every frame
-void AEnemyCharacterBase::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
+	if (bStartUnaware)
+	{
+		UnawareEffect = AbilitySystem->BP_ApplyGameplayEffectToSelf(UnawareEffectClass,1,AbilitySystem->MakeEffectContext());
+	}
+	
 }
 
 // Called to bind functionality to input
@@ -226,9 +226,14 @@ float AEnemyCharacterBase::GetCurrentHealth() const
 	return 0.0f;
 }
 
+UEnemySkill* AEnemyCharacterBase::GetDecidedSkill() const
+{
+	return SkillToUse;
+}
+
 UEnemySkill* AEnemyCharacterBase::ReturnAvailableSkill()
 {
-	if (!AttackTarget)
+	if (!AttackTarget || Moveset.Num() == 0)
 		return nullptr;
 
 	float Distance, Height, Angle;
@@ -239,10 +244,15 @@ UEnemySkill* AEnemyCharacterBase::ReturnAvailableSkill()
 	UEnemySkill* ChosenSkill = nullptr;
 
 	bool inRange = false, inHeight = false, inAngle = false, inState = false;
+	bool bHasSilence = AbilitySystem->HasMatchingGameplayTag(TAG_Status_Ailment_Silence);
+	int highestPriority = 0;
 
 	for (UEnemySkill* skillRef : Moveset)
 	{
 		if (SkillCooldownManager->IsSkillOnCooldown(skillRef) || skillRef->IsSkillReaction())
+			continue;
+
+		if (skillRef->GetPriority() < highestPriority)
 			continue;
 
 		// Insert RequestTicket event invocation here (this enemy will carry the delegate)
@@ -253,6 +263,7 @@ UEnemySkill* AEnemyCharacterBase::ReturnAvailableSkill()
 		skillAngle = skillRef->GetAngleReq();
 		inAngle = skillAngle > 0.0f ? Angle <= skillAngle : true;
 		FGameplayTag stateTag = skillRef->GetStateRequirement();
+		
 		if (stateTag == FGameplayTag::EmptyTag)
 		{
 			inState = true;
@@ -264,8 +275,17 @@ UEnemySkill* AEnemyCharacterBase::ReturnAvailableSkill()
 
 		if (inRange && inHeight && inAngle && inState)
 		{
+			if (bHasSilence)
+			{
+				float random = FMath::RandRange(0.0f, 1.0f);
+				float silenceRes = skillRef->GetResistanceToSilence();
+				
+				if (silenceRes == 0.0f || random <= (1.0f - silenceRes))
+				{
+					continue;
+				}
+			}
 			ChosenSkill = skillRef;
-			break;
 		}
 	}
 
@@ -282,6 +302,19 @@ void AEnemyCharacterBase::SetSkillCooldown(UEnemySkill* SkillToCD)
 void AEnemyCharacterBase::GiveFlyingPositions(TArray<FVector> FlyingPos)
 {
 	FlyingPositions = FlyingPos;
+}
+
+void AEnemyCharacterBase::GroupEnemyTick(float DeltaTime)
+{
+	if (bCanDecide)
+		PreparingForAttack();
+	
+	OnAggregatedTick.Broadcast(DeltaTime);
+	
+	for (UActorComponent* tickables: AggregateComponents)
+	{
+		Cast<IAggregateTickInterface>(tickables)->AggregateTick(DeltaTime);
+	}
 }
 
 void AEnemyCharacterBase::Recover() 

@@ -1,5 +1,7 @@
+#include "GameplayTagContainer.h"
 #include "HitScanShape.h"
 #include "ParryHitStruct.h"
+#include "GAS/UDGameplayTags.h"
 #include "SkillHitDataStruct.generated.h"
 #pragma once
 
@@ -9,19 +11,25 @@ struct FSkillHitData
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
-	FName HitSequenceName;
+	FText HitSequenceName;
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	float SkillModifier = 1.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float PoiseDamage = 1.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayTag HitElement = TAG_Damage_Health_Physical;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float KnockbackPower = 100.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bHasVerticalLaunch = false;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UNiagaraSystem* AdditionalHitEffect;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bHasVerticalLaunch", EditConditionHides))
 	float VerticalLaunchPower = 0.0f;
@@ -52,5 +60,8 @@ struct FSkillHitData
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bAttachedToSocket", EditConditionHides))
 	FName SocketName;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bAttachedToSocket", EditConditionHides))
+	FName EndSocketName;
 
 };

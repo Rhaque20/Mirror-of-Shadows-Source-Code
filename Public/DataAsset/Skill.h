@@ -8,6 +8,7 @@
 #include "Structs/ParryHitStruct.h"
 #include "Structs/SkillHitDataStruct.h"
 #include "EnumLib.h"
+#include "Enumerator/SkillTypeEnum.h"
 #include "GameplayTagContainer.h"
 #include "../../../../Plugins/Wwise/Source/AkAudio/Classes/AkAudioEvent.h"
 
@@ -18,13 +19,19 @@
  */
 class UAnimationAsset;
 class UCurveAsset;
+
+
+
 UCLASS(Blueprintable)
 class MIRROROFSHADOWS_API USkill : public UDataAsset
 {
 	GENERATED_BODY()
 	protected:
-		UPROPERTY(EditDefaultsOnly)
-		FString SkillName;
+		UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
+		FText SkillName;
+	
+		UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, meta=(MultiLine="true"))
+		FText SkillDescription;
 
 		UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
 		ESkillHeight SkillHeightRequirement;
@@ -38,8 +45,23 @@ class MIRROROFSHADOWS_API USkill : public UDataAsset
 		UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stagger System")
 		float ResistInterruptMod = 1.f;
 		
-		UPROPERTY(EditDefaultsOnly)
-		bool IsProjectile = false;
+		UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "Projectile")
+		bool bIsProjectile = false;
+	
+		UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,Category = "Summon")
+		bool bIsSummon = false;
+	
+		UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Summon", meta = (EditCondition="bIsSummon",EditConditionHides))
+		TSubclassOf<class AActor> SummonedEntityClass;
+	
+		UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Summon", meta = (EditCondition="bIsSummon",EditConditionHides))
+		float SummonLifetime = -1.0f;
+	
+		UPROPERTY(EditDefaultsOnly, Category = "Summon",meta = (EditCondition="bIsSummon",EditConditionHides))
+		bool IsDestructible = false;
+	
+		UPROPERTY(EditDefaultsOnly, Category = "Summon",meta = (EditCondition="IsDestructible",EditConditionHides))
+		TSubclassOf<class UGameplayEffect> SummonStatsEffect;
 
 		UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Force Settings", meta = (ToolTip = "Does the direction of the force also go on the Z-Axis"))
 		bool IsFlying = false;
@@ -62,14 +84,20 @@ class MIRROROFSHADOWS_API USkill : public UDataAsset
 		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Skill")
 		FGameplayTag SkillElement;
 
+		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Skill")
+		ESkillType SkillType = ESkillType::ComboATK;
+
 		UPROPERTY(BlueprintReadOnly,EditDefaultsOnly, Category = "Effects")
-		TArray<TSubclassOf<class UGameplayEffect>> BaseEffects;
+		TArray<class USkillChainSlot*> BaseEffects;
 
 		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Status Effect Influence")
 		float ResistanceToSilence = 0.0f;
 
 		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "State Requirement")
 		FGameplayTag StateRequirement;
+		
+		UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Projectile", meta = (EditCondition = "bIsProjectile",EditConditionHides))
+		TArray<class UProjectileData*> ProjectileData;
 
 	public:
 		UFUNCTION(BlueprintCallable)
@@ -85,6 +113,13 @@ class MIRROROFSHADOWS_API USkill : public UDataAsset
 
 			return HitInformation[index % HitInformation.Num()];
 		}
+	
+		UProjectileData* GetProjectileData(int index) const
+		{
+			if (index < 0 || index >= HitInformation.Num())
+				return nullptr;
+			return ProjectileData[index];
+		}
 
 
 		TSubclassOf<class UCharacterGameplayAbility> ReturnAbilityClass() const
@@ -94,7 +129,10 @@ class MIRROROFSHADOWS_API USkill : public UDataAsset
 
 		UCurveFloat* GetLaunchCurve() const { return LaunchCurve; }
 		float GetLaunchForce() const { return LaunchForce; }
-		FString GetSkillName() const { return SkillName; }
+		FText GetSkillName() const { return SkillName; }
 		FGameplayTag GetSkillElement() const { return SkillElement; }
 		FGameplayTag GetStateRequirement() const { return StateRequirement; }
+		ESkillHeight GetSkillHeightRequirement() const { return SkillHeightRequirement; }
+		float GetResistanceToSilence() const {return ResistanceToSilence;}
+		bool GetHasProjecitle() const {return bIsProjectile;}
 };

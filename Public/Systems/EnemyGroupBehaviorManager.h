@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "GameplayTagContainer.h"
+#include "EngineSystems/EnemyManagerTick.h"
 
 #include "EnemyGroupBehaviorManager.generated.h"
 
@@ -30,13 +31,17 @@ class MIRROROFSHADOWS_API AEnemyGroupBehaviorManager : public AActor
 public:	
 	// Sets default values for this actor's properties
 	AEnemyGroupBehaviorManager();
+	
+	void SetTicketAmounts(int MaxMeleeTickets, int MaxRangeTickets);
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 public:
+	UPROPERTY()
 	TMap<AEnemyCharacterBase*, FGameplayTag> TicketTracker;
+	
 	UPROPERTY(BlueprintAssignable)
 	FOnBattleBegin OnBattleBegin;
 
@@ -103,8 +108,10 @@ public:
 
 	UFUNCTION()
 	void DetectedPlayer(AActor* DetectedPlayer);
+	
+	UFUNCTION()
+	void Tick(float DeltaSeconds) override;
 
 	UFUNCTION()
 	void EnemyGroupLoop();
-	
 };

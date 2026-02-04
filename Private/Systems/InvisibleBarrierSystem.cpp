@@ -2,8 +2,7 @@
 
 
 #include "Systems/InvisibleBarrierSystem.h"
-
-#include "EnemySpawnerSystem.h"
+#include "Systems/EnemySpawnerSystem.h"
 
 #define PlayerPawn ECollisionChannel::ECC_GameTraceChannel2;
 #define PlayerTrace ECollisionChannel::ECC_GameTraceChannel3;
@@ -13,7 +12,7 @@
 AInvisibleBarrierSystem::AInvisibleBarrierSystem()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
     // Ensures every future compnent refers to this as the root
     RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
     RootComponent->SetMobility(EComponentMobility::Static);
@@ -69,6 +68,7 @@ void AInvisibleBarrierSystem::OnConstruction(const FTransform& Transform)
             NewBox->SetHiddenInGame(true);
             NewBox->SetVisibility(true);
             NewBox->SetMobility(EComponentMobility::Movable);
+            NewBox->SetCanEverAffectNavigation(true);
     
             // Add to tracking array
             ArenaWalls.Add(NewBox);
@@ -106,12 +106,5 @@ void AInvisibleBarrierSystem::BarriersOff(AEnemySpawnerSystem* DefeatedSpawner)
 void AInvisibleBarrierSystem::BeginPlay()
 {
 	Super::BeginPlay();
-}
-
-// Called every frame
-void AInvisibleBarrierSystem::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
 }
 

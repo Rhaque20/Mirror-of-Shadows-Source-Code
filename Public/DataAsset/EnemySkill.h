@@ -21,6 +21,9 @@ class MIRROROFSHADOWS_API UEnemySkill : public USkill
 		UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Cooldown")
 		float InternalCooldown = 0.f;
 
+		UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="AI")
+		int Priority = 0;
+
 		UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Range Requirement")
 		float MinRangeReq = 0;
 		UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="Range Requirement")
@@ -45,4 +48,5 @@ class MIRROROFSHADOWS_API UEnemySkill : public USkill
 		float GetHeightReq() { return HeightReq; }
 
 		bool IsSkillReaction() { return bIsReaction; }
+		int GetPriority() { return Priority; }
 };

@@ -27,9 +27,6 @@ struct FItemSpec
     GENERATED_BODY()
 
     UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Item Definition")
-	class URPGItem* ItemDefinition;
-
-    UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Item Definition")
     bool bCanStack = true;
 
     UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Inventory", meta = (EditCondition = "bCanStack"))
@@ -37,10 +34,16 @@ struct FItemSpec
     // Holds the mutable properties of the item for custom items.
     // UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (ToolTip="Contains mutable properties of the item such as substats, equipment sets, etc."))
     // TArray<TInstancedStruct<FItemSpecFragments>> SpecFragments;
+    UPROPERTY(BlueprintReadOnly, EditAnywhere, meta = (ToolTip="Struct of the spec itself."))
     TInstancedStruct<FRPGItemData> ItemData;
-
+    
+    UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Item Definition")
     EItemCategory ItemCategory;
 
+    UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Item Definition")
+    EGrade ItemGrade;
+
+    UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Item Definition")
     FName ItemName;
 
     template <std::derived_from<FRPGItemData> T>
@@ -75,6 +78,9 @@ struct FItemSpec
 
     bool operator==(const FItemSpec& Other) const
     {
+        if (ItemCategory != Other.ItemCategory)
+            return false;
+          
         if (Other.ItemCategory == EItemCategory::Armor)
         {
             const FArmorData* thisArmorData = RetrieveItem<FArmorData>();
@@ -90,6 +96,25 @@ struct FItemSpec
         }
 
         return false;
+    }
+
+    FArmorData RetrieveArmorData()
+    {
+        if (ItemCategory == EItemCategory::Armor)
+        {
+            return *RetrieveItem<FArmorData>();
+        }
+        return FArmorData();
+    }
+
+    FRPGMaterialData RetrieveMaterialData()
+    {
+        if (ItemCategory == EItemCategory::CraftingMaterial)
+        {
+            return *RetrieveItem<FRPGMaterialData>();
+        }
+
+        return FRPGMaterialData();
     }
 
 // Main function, use this
@@ -249,3 +274,4 @@ struct FItemSpec
 //     UPROPERTY(BlueprintReadWrite, EditAnywhere)
 //     FGameplayTag ArmorSet;
 // };
+uint32 GetTypeHash(const FItemSpec& Thing);

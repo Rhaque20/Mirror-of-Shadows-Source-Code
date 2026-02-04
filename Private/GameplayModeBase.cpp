@@ -15,9 +15,13 @@ void AGameplayModeBase::BeginPlay()
     StartGame();
 }
 
+void AGameplayModeBase::PostLogin(APlayerController* NewPlayer)
+{
+    Super::PostLogin(NewPlayer);
+    OnPlayerControllerSpawn.Broadcast(NewPlayer);
+    OnPlayerControllerSpawn.RemoveAll(this);
+}
+
 void AGameplayModeBase::StartGame()
 {
-    
-
-    
 }

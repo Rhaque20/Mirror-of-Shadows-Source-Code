@@ -2,6 +2,8 @@
 
 
 #include "GAS/BaseAttributeSet.h"
+
+#include "AbilitySystemBlueprintLibrary.h"
 #include "GameplayEffect.h"
 #include "PlayerCharacters.h"
 #include "RPGCharacterBase.h"
@@ -98,16 +100,25 @@ void UBaseAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
     }
 	else if (Data.EvaluatedData.Attribute == GetHealthRestoredAttribute())
 	{
-		const float AmountHealed = GetHealthRestored();
+		float AmountHealed = GetHealthRestored();
 		SetHealthRestored(0.0f);
+		AmountHealed = FMath::Clamp(AmountHealed, 0.0f,GetTotalHP()-GetCurrentHP());
 		SetCurrentHP(FMath::Clamp(GetCurrentHP() + AmountHealed, 0.0f,GetTotalHP()));
+		FGameplayEventData Payload;
+		Payload.EventMagnitude = AmountHealed;
+		Payload.Instigator = SourceActor;
+		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(TargetActor,TAG_Event_Combat_Healed,Payload);
 	}
 	else if (Data.EvaluatedData.Attribute == GetStatusDMGAttribute())
 	{
 		float statusDMG = GetStatusDMG();
 		if (statusDMG > 0.0f)
 		{
-			TargetCharacter->GetStatusEffectComponent()->ApplyStatusDamage(SourceTags.GetByIndex(0), statusDMG);
+			if (SpecAssetTags.Num() > 0)
+			{
+				FGameplayTag StatusTag = SpecAssetTags.GetGameplayTagArray()[0];
+				TargetCharacter->GetStatusEffectComponent()->ApplyStatusDamage(Source,StatusTag, statusDMG);
+			}
 		}
 		SetStatusDMG(0.0f);
 	}

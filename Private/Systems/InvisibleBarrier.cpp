@@ -16,6 +16,7 @@ AInvisibleBarrier::AInvisibleBarrier()
     TriggerBox->SetCollisionProfileName(TEXT("InvisibleWall"));
     TriggerBox->SetGenerateOverlapEvents(true);
     BarrierOff();
+    PrimaryActorTick.bCanEverTick = false;
 }
 
 void AInvisibleBarrier::BarrierOn()
@@ -38,12 +39,5 @@ void AInvisibleBarrier::BeginPlay()
 {
 	Super::BeginPlay();
 	
-}
-
-// Called every frame
-void AInvisibleBarrier::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
 }
 

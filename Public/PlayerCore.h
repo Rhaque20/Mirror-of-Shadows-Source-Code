@@ -73,6 +73,8 @@ class MIRROROFSHADOWS_API UPlayerCore : public UCombatComponent
 				return AirSwitchSkill;
 		}
 
+		void GiveNewSkill(UPlayerSkill* NewSkill);
+
 		void FillAllSkillEnergy(float EnergyAmount);
 		void FillAllSkillEnergy(float EnergyAmount, FGameplayTag SkillElement, float MatchModifier, float MismatchModifier);
 

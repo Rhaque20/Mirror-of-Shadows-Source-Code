@@ -1,6 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
+// Fill out your copyright notice in the Description page of Project Settings.
+
+
 #include "PlayerPartyController.h"
 #include "DataAsset/PlayerData.h"
 #include "Kismet/GameplayStatics.h"
@@ -8,10 +11,12 @@
 #include "Components/PrimitiveComponent.h"
 #include "GameplayEffect.h"
 #include "AbilitySystemComponent.h"
+#include "CustomGameInstance.h"
 #include "GAS/UDGameplayTags.h"
 #include "DataAsset/PlayerSkill.h"
 #include "DataAsset/UnisonSkill.h"
 #include "Enumerator/EffectTargetType.h"
+
 
 const int SWAPFAIL = -1;
 
@@ -19,6 +24,7 @@ const int SWAPFAIL = -1;
 APlayerPartyController::APlayerPartyController()
 {
     AbilitySystem = CreateDefaultSubobject<UCustomAbilitySystemComponent>("AbilitySystem");
+    PhaseNumber = 3;
 }
 
 /// <summary>
@@ -37,8 +43,8 @@ void APlayerPartyController::SetUpMembers(TArray<APlayerCharacters*> PartyList)
         // Controller ref exists to keep track of the party data such as skill chain level
         // and skill chain element.
         SummonedActorReferences[i]->GiveControllerRef(this);
-        SummonedActorReferences[i]->SkillActivated.AddDynamic(this,&APlayerPartyController::GiveSPToOtherAllies);
-        SummonedActorReferences[i]->CharacterDied.AddDynamic(this,&APlayerPartyController::OnPlayerDeath);
+        SummonedActorReferences[i]->SkillActivated.AddDynamic(this, &APlayerPartyController::GiveSPToOtherAllies);
+        SummonedActorReferences[i]->CharacterDied.AddDynamic(this, &APlayerPartyController::OnPlayerDeath);
         bIsPlayerDead.Add(false);
     }
 }
@@ -61,26 +67,26 @@ void APlayerPartyController::IncreaseSkillChainLevel(EElement SkillElement = EEl
         {
             SkillChainAdvance.Broadcast(4, SkillElement);
             bExtendChainThree = false;
-        }  
+        }
         else
         {
-            // If we have applied both chances of skill chain 3 effects, end the chain.
-            EndChainTimer();
+            SkillChainAdvance.Broadcast(0, SkillElement);
+            SkillChainLevel = 1;
         }
-            
+
     }
     else
     {
-        // In normal cases, incrememnt the skill chain and broadcast the new element and chain
+        // In normal cases, increment the skill chain and broadcast the new element and chain
         // to whomever is subscribed to it.
-        SkillChainLevel++;
         SkillChainAdvance.Broadcast(SkillChainLevel, SkillElement);
+        SkillChainLevel++;
     }
 
-    UnisonGaugeAmount += FMath::Clamp(UnisonGaugeAmount + (UnisonGaugeGainBase + (SkillChainLevel - 1)*UnisonGaugeGainPerLevel)
-        ,0.0f,UnisonGaugeMax);
-    UE_LOG(LogTemp, Display, TEXT("Skill Chain Increased from %d to %d"),oldChain,SkillChainLevel);
-    OnUnisonGaugeChange.Broadcast(UnisonGaugeAmount/CurrentSkillCost,UnisonGaugeAmount/UnisonGaugeMax,SkillIcon);
+    UnisonGaugeAmount = FMath::Clamp(UnisonGaugeAmount + (UnisonGaugeGainBase + (SkillChainLevel - 1) * UnisonGaugeGainPerLevel)
+        , 0.0f, UnisonGaugeMax);
+    UE_LOG(LogTemp, Display, TEXT("Skill Chain Increased from %d to %d"), oldChain, SkillChainLevel);
+    OnUnisonGaugeChange.Broadcast(UnisonGaugeAmount / CurrentSkillCost, UnisonGaugeAmount / UnisonGaugeMax, SkillIcon);
     // The chain timer begins here.
     StartChainTimer();
 }
@@ -100,73 +106,20 @@ void APlayerPartyController::SetChainTimerPlaying(bool bTimerIsPlaying)
 /// </summary>
 void APlayerPartyController::BeginPlay()
 {
-    Super::BeginPlay();
 
-
-    // Remove GetPawn and find another way to get current player in the world
-    // Until I do so, just use this to get the active location of the spawned player
-    // This being a blank pawn that exists purely to get location and rotation data.
-    APawn* PawnSummoned = UGameplayStatics::GetPlayerPawn(this, 0);
-    FVector CurrentPos = PawnSummoned->GetActorLocation();
-    FRotator CurrentRot = PawnSummoned->GetActorRotation();
-
-    // Spawn params to ensure party members always spawn with or without obstruction.
-    FActorSpawnParameters SpawnParams;
-    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-    if (PartyMemberData[0] != nullptr)
+    UMyGameInstance* GameInstance = Cast<UMyGameInstance>(GetWorld()->GetGameInstance());
+    if (GameInstance && GameInstance->SaveSystem)
     {
-        // Spawn the party members through the established list
-        for (int i = 0; i < PartyMemberData.Num(); i++)
-        {
-            // Spawn the party member based on the class specified in the data struct for party member data.
-            APlayerCharacters* CurrentPlayer = GetWorld()->SpawnActor<APlayerCharacters>(PartyMemberData[i]->GetCharacterClass(), CurrentPos, CurrentRot,SpawnParams);
-
-            // Keeping here purely for future issues that may arise. First time this happened was because of
-            // obstruction of spawn point.
-            if (!CurrentPlayer)
-            {
-                UE_LOG(LogTemp, Error, TEXT("How the hell did this end up being null?"));
-                continue;
-            }
-                
-            if (i == 0)
-            {
-                Possess(Cast<APawn>(CurrentPlayer));
-            }
-            else
-            {
-                // Hide other party members that aren't the first.
-                CurrentPlayer->SetPlayerActive(false);
-            }
-            SummonedActorReferences.Add(CurrentPlayer);
-        }
-
-        SetUpMembers(SummonedActorReferences);
+        TScriptInterface<ISavableInterface> Interface(this);
+        GameInstance->SaveSystem->RegisterSubsystem(Interface);
     }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("Party Member not initialized or controller is null"));
-    }
-
-    for (UUnisonSkill* Skill : UnisonSkills)
-    {
-        TSubclassOf<UGameplayAbility> AbilityClass = Skill->GetUnisonSkillAbility();
-        if (AbilityClass != nullptr)
-        {
-            AbilitySystem->GiveAbility(AbilityClass);
-        }
-        
-    }
-
-    if (UnisonSkills.Num() > 0)
-    {
-        CurrentUnisonSkill = 0;
-        CurrentSkillCost = UnisonSkills[CurrentUnisonSkill]->GetUnisonSkillCost();
-        SkillIcon = UnisonSkills[CurrentUnisonSkill]->GetSkillIcon();
-        OnUnisonGaugeChange.Broadcast(0.0f,0.0f,SkillIcon);
-    }
-        
     
+    
+    Super::BeginPlay();
+    
+    //Cast<UMyGameInstance>(GetWorld()->GetGameInstance())->SaveSystem->LoadGame();
+
+
 }
 
 /// <summary>
@@ -176,7 +129,7 @@ void APlayerPartyController::SwapCharacterLeft()
 {
     int SwapToIndex = GetCharacterLeftIndex();
 
-    if(SwapToIndex != SWAPFAIL)
+    if (SwapToIndex != SWAPFAIL)
         SwapCharacter(SwapToIndex);
 }
 
@@ -189,6 +142,14 @@ void APlayerPartyController::SwapCharacterRight()
 
     if (SwapToIndex != SWAPFAIL)
         SwapCharacter(SwapToIndex);
+}
+
+void APlayerPartyController::GivePartyXP(float XPAmount)
+{
+    for (APlayerCharacters* Players : SummonedActorReferences)
+    {
+        Players->ReceiveXP(XPAmount);
+    }
 }
 
 /// <summary>
@@ -260,6 +221,13 @@ int APlayerPartyController::GetCharacterRightIndex()
     return SwapToIndex;
 }
 
+APlayerCharacters* APlayerPartyController::GetPlayerAtNextIndex(bool bRightIndex)
+{
+    int swapIndex = bRightIndex ? GetCharacterRightIndex() : GetCharacterLeftIndex();
+
+    return swapIndex != SWAPFAIL ? SummonedActorReferences[swapIndex] : nullptr;
+}
+
 /// <summary>
 /// Perform a summon attack instead of switching
 /// </summary>
@@ -318,7 +286,7 @@ void APlayerPartyController::OnPlayerDeath(ARPGCharacterBase* PlayerCharacter)
 {
     APlayerCharacters* PlayerRef = Cast<APlayerCharacters>(PlayerCharacter);
     int i = SummonedActorReferences.Find(PlayerRef);
-    
+
     if (i != -1 && ForceSwapImmunityEffect != nullptr)
     {
         bIsPlayerDead[i] = true;
@@ -328,11 +296,13 @@ void APlayerPartyController::OnPlayerDeath(ARPGCharacterBase* PlayerCharacter)
         {
             ActiveCharacter->SetActorHiddenInGame(true);
             GameOver.Broadcast();
+            UnPossess();
+            bShowMouseCursor = true;
         }
         else
         {
             UAbilitySystemComponent* ActiveASC = ActiveCharacter->GetAbilitySystemComponent();
-            ActiveASC->BP_ApplyGameplayEffectToSelf(ForceSwapImmunityEffect,0,ActiveASC->MakeEffectContext());
+            ActiveASC->BP_ApplyGameplayEffectToSelf(ForceSwapImmunityEffect, 0, ActiveASC->MakeEffectContext());
         }
     }
 }
@@ -347,11 +317,11 @@ void APlayerPartyController::ActivateUnisonSkill()
         if (UnisonGaugeAmount >= Cost)
         {
             UnisonGaugeAmount -= Cost;
-            
+
             if (UnisonGaugeAmount <= 0.0f)
                 UnisonGaugeAmount = 0.0f;
-            
-            OnUnisonGaugeChange.Broadcast(UnisonGaugeAmount/CurrentSkillCost,UnisonGaugeAmount/UnisonGaugeMax,SkillIcon);
+
+            OnUnisonGaugeChange.Broadcast(UnisonGaugeAmount / CurrentSkillCost, UnisonGaugeAmount / UnisonGaugeMax, SkillIcon);
             TSubclassOf<UGameplayAbility> Ability = UnisonSkills[i]->GetUnisonSkillAbility();
             if (Ability != nullptr)
             {
@@ -365,11 +335,11 @@ void APlayerPartyController::ActivateUnisonSkill()
                 EEffectTargetType Targetting = UnisonSkills[i]->GetEffectTargetType();
                 if (Targetting == EEffectTargetType::OnCaster)
                 {
-                    ActiveCharacter->GetAbilitySystemComponent()->BP_ApplyGameplayEffectToSelf(Effect,1,AbilitySystem->MakeEffectContext());
+                    ActiveCharacter->GetAbilitySystemComponent()->BP_ApplyGameplayEffectToSelf(Effect, 1, AbilitySystem->MakeEffectContext());
                 }
                 else if (Targetting == EEffectTargetType::OnTeam)
                 {
-                    ApplyGameplayEffectToAllAllies(AbilitySystem->MakeOutgoingSpec(Effect,1,AbilitySystem->MakeEffectContext()));
+                    ApplyGameplayEffectToAllAllies(AbilitySystem->MakeOutgoingSpec(Effect, 1, AbilitySystem->MakeEffectContext()));
                 }
             }
         }
@@ -402,7 +372,7 @@ void APlayerPartyController::EndChainTimer()
 {
     GetWorld()->GetTimerManager().ClearTimer(ChainTimerHandle);
     SkillChainLevel = 0;
-    SkillChainAdvance.Broadcast(SkillChainLevel, EElement::Physical);
+    SkillChainAdvance.Broadcast(SkillChainLevel, EElement::Pure);
 }
 
 /// <summary>
@@ -412,6 +382,9 @@ void APlayerPartyController::EndChainTimer()
 /// <param name="index">Party Member index to summon attack</param>
 void APlayerPartyController::SummonAttack(int index)
 {
+    if (!bIsTimerActive)
+        return;
+    
     APlayerCharacters* SwapToPlayer = SummonedActorReferences[index];
 
     // If we have a lock on target, set the summoned ally to be within summon range of the lockon target
@@ -430,7 +403,7 @@ void APlayerPartyController::SummonAttack(int index)
     // This will get overriden if the player has a lock on target.
     SwapToPlayer->SetActorRotation(ActiveCharacter->GetActorRotation());
 
-    if (SwapToPlayer->SummonAttack(LockOnTarget,ActiveCharacter->IsOnGround()))
+    if (SwapToPlayer->SummonAttack(LockOnTarget, ActiveCharacter->IsOnGround()))
     {
         SwapToPlayer->SetPlayerActive(true);
         UE_LOG(LogTemp, Display, TEXT("Summon attack successful"));
@@ -445,7 +418,7 @@ void APlayerPartyController::SummonAttack(int index)
 /// Switch to another character
 /// </summary>
 /// <param name="SwapToIndex">Index to swap to</param>
-void APlayerPartyController::SwapCharacter(int SwapToIndex) 
+void APlayerPartyController::SwapCharacter(int SwapToIndex)
 {
     APlayerCharacters* SwapToPlayer = SummonedActorReferences[SwapToIndex];
 
@@ -455,6 +428,7 @@ void APlayerPartyController::SwapCharacter(int SwapToIndex)
 
     FVector CurrentPos = ActiveCharacter->GetActorLocation();
     FRotator CurrentRot = ActiveCharacter->GetActorRotation();
+    FVector CurrentVelocity = ActiveCharacter->GetVelocity();
 
     // Get the rotation of the camera relative to the player.
     FRotator CameraRot = ActiveCharacter->GetController()->GetControlRotation();
@@ -465,12 +439,13 @@ void APlayerPartyController::SwapCharacter(int SwapToIndex)
     // and camera rotation as the previously active character.
     SwapToPlayer->SetActorLocation(CurrentPos);
     SwapToPlayer->SetActorRotation(CurrentRot);
+    SwapToPlayer->SetVelocity(CurrentVelocity);
 
     SwapToPlayer->GetController()->SetControlRotation(CameraRot);
-    
-     UE_LOG(LogTemp, Display, TEXT("Swapped party members and relocated camera"));
 
-     // Make the swap to player visible.
+    UE_LOG(LogTemp, Display, TEXT("Swapped party members and relocated camera"));
+
+    // Make the swap to player visible.
     SwapToPlayer->SetPlayerActive(true);
     // Rename to CanBeInterrupted
 
@@ -489,17 +464,17 @@ void APlayerPartyController::SwapCharacter(int SwapToIndex)
     ActiveCharacter->SwapOut();
 
     // Transfer the lock on target from the previously active character to the new one
-    SwapToPlayer->SetUpLockOn(IsLockedOn,LockOnTarget);
+    SwapToPlayer->SetUpLockOn(IsLockedOn, LockOnTarget);
 
     // Give the offield state effect to the swapped out character and remove from
     // the on field one. This effect prevents the offfield character from taking
     // damage when doing a summon attack.
-    UAbilitySystemComponent *ActiveASC, *SwapToASC;
+    UAbilitySystemComponent* ActiveASC, * SwapToASC;
     ActiveASC = ActiveCharacter->GetAbilitySystemComponent();
     SwapToASC = SwapToPlayer->GetAbilitySystemComponent();
 
-    if(OfffieldState)
-        ActiveASC->BP_ApplyGameplayEffectToSelf(OfffieldState,0,ActiveASC->MakeEffectContext());
+    if (OfffieldState)
+        ActiveASC->BP_ApplyGameplayEffectToSelf(OfffieldState, 0, ActiveASC->MakeEffectContext());
     else
         UE_LOG(LogTemp, Error, TEXT("OFFFIELD STATE EFFECT IS NULL IN PARTY CONTROLLER"));
 
@@ -532,7 +507,7 @@ void APlayerPartyController::ApplyGameplayEffectToAllAllies(FGameplayEffectSpecH
 
     for (APlayerCharacters* Member : SummonedActorReferences)
     {
-        UE_LOG(LogTemp, Display, TEXT("%s is receiving a buff"),*(Member->GetName()));
+        UE_LOG(LogTemp, Display, TEXT("%s is receiving a buff"), *(Member->GetName()));
         Member->GetAbilitySystemComponent()->BP_ApplyGameplayEffectSpecToSelf(Handle);
     }
 }
@@ -570,17 +545,141 @@ void APlayerPartyController::GiveSPToOtherAllies(APlayerCharacters* ActivatingAc
     FGameplayTag SkillElement = SkillActivated->GetSkillElement();
     // Prevent the activating skill from receiving it.
     SkillActivated->SetCanGainSkillEnergy(false);
-    
+
     // Go through all the members (including the caster) and give the energy.
     for (APlayerCharacters* Member : SummonedActorReferences)
     {
-        Member->GainSkillEnergy(SkillEnergyToGive, SkillElement,EnergyRefundRatio,EnergyRefundRatioMismatch, Member == ActivatingActor);
+        Member->GainSkillEnergy(SkillEnergyToGive, SkillElement, EnergyRefundRatio, EnergyRefundRatioMismatch, Member == ActivatingActor);
     }
 
     // Re-enable energy gain.
     SkillActivated->SetCanGainSkillEnergy(true);
 }
 
+void APlayerPartyController::InitializeData()
+{
+    // Remove GetPawn and find another way to get current player in the world
+    // Until I do so, just use this to get the active location of the spawned player
+    // This being a blank pawn that exists purely to get location and rotation data.
+    APawn* PawnSummoned = UGameplayStatics::GetPlayerPawn(this, 0);
+    FVector CurrentPos = PawnSummoned->GetActorLocation();
+    FRotator CurrentRot = PawnSummoned->GetActorRotation();
 
+    // Spawn params to ensure party members always spawn with or without obstruction.
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+    if (PartyMemberData[0] != nullptr)
+    {
+        // Spawn the party members through the established list
+        for (int i = 0; i < PartyMemberData.Num(); i++)
+        {
+            // Spawn the party member based on the class specified in the data struct for party member data.
+            APlayerCharacters* CurrentPlayer = GetWorld()->SpawnActor<APlayerCharacters>(PartyMemberData[i]->GetCharacterClass(), CurrentPos, CurrentRot, SpawnParams);
 
+            // Keeping here purely for future issues that may arise. First time this happened was because of
+            // obstruction of spawn point.
+            if (!CurrentPlayer)
+            {
+                UE_LOG(LogTemp, Error, TEXT("How the hell did this end up being null?"));
+                continue;
+            }
 
+            if (i == 0)
+            {
+                Possess(Cast<APawn>(CurrentPlayer));
+            }
+            else
+            {
+                // Hide other party members that aren't the first.
+                CurrentPlayer->SetPlayerActive(false);
+            }
+            SummonedActorReferences.Add(CurrentPlayer);
+        }
+
+        SetUpMembers(SummonedActorReferences);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Party Member not initialized or controller is null"));
+    }
+
+    for (UUnisonSkill* Skill : UnisonSkills)
+    {
+        TSubclassOf<UGameplayAbility> AbilityClass = Skill->GetUnisonSkillAbility();
+        if (AbilityClass != nullptr)
+        {
+            AbilitySystem->GiveAbility(AbilityClass);
+        }
+
+    }
+
+    if (UnisonSkills.Num() > 0)
+    {
+        CurrentUnisonSkill = 0;
+        CurrentSkillCost = UnisonSkills[CurrentUnisonSkill]->GetUnisonSkillCost();
+        SkillIcon = UnisonSkills[CurrentUnisonSkill]->GetSkillIcon();
+        OnUnisonGaugeChange.Broadcast(0.0f, 0.0f, SkillIcon);
+    }
+}
+
+int32 APlayerPartyController::GetSavePhase() const
+{
+    return PhaseNumber;
+}
+
+void APlayerPartyController::SaveData(USavedGame& Root)
+{
+    auto &Actors = SummonedActorReferences;
+    for (int32 i = 0; i < Actors.Num(); ++i)
+    {
+        FEquipmentToSave EquippedItems = Actors[i]->GetEquipmentSaveData();
+
+        if (i >= Root.EquipmentItems.Num())
+            Root.EquipmentItems.Add(EquippedItems);
+        else
+        {
+            Root.EquipmentItems[i] = EquippedItems;
+        }
+    }
+
+    Root.CharacterPosition = GetActiveCharacter()->GetActorLocation();
+}
+
+void APlayerPartyController::LoadData(const USavedGame& Root)
+{
+    InitializeData();
+    
+    auto &Actors = SummonedActorReferences;
+    auto &LoadedItems = Root.EquipmentItems;
+
+    for (int32 i = 0; i < Actors.Num(); ++i)
+    {
+        FName ActorName = Actors[i]->GetFName();
+
+        if (i >= Root.EquipmentItems.Num())
+            break;
+
+        FEquipmentToSave SavedEQ = Root.EquipmentItems[i];
+
+        Actors[i]->LoadEquipmentFromSaveData(SavedEQ);
+    }
+
+    GetActiveCharacter()->SetActorLocation(Root.CharacterPosition);
+}
+
+const TArray<APlayerCharacters*>& APlayerPartyController::GetSummonedActors() const
+{
+    return SummonedActorReferences;
+}
+
+void APlayerPartyController::GrantSkillTreeNode(FName SkillTreeTarget, USkillTreeNodeData* Node, FName SkillID)
+{
+    for (APlayerCharacters* Players : SummonedActorReferences)
+    {
+        if (Players->ActorHasTag(SkillTreeTarget))
+        {
+            Players->ReceiveSkillNode(Node,SkillID);
+            break;
+        }
+    }
+}
